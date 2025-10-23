@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// ReLU for signed data (max(0, x))
+// ReLU for signed data (max(0, x)) -- Icarus-friendly
 // -----------------------------------------------------------------------------
 module pe_relu #(
   parameter int W = 24
@@ -7,8 +7,6 @@ module pe_relu #(
   input  logic signed [W-1:0] din,
   output logic signed [W-1:0] dout
 );
-  always_comb begin
-    if (din[W-1]) dout = '0;  // negative -> zero
-    else          dout = din; // pass-through
-  end
+  // Use signed compare instead of din[W-1] to avoid the Icarus limitation.
+  assign dout = (din < 0) ? '0 : din;
 endmodule
