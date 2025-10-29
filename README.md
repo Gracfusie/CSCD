@@ -3,6 +3,20 @@ CNN System Chip Design (Part of RTL and testbench)
 
 Feishu link: https://bcncr0uo1h2n.feishu.cn/wiki/Fgt2wYKJciuy69ksGFvc6SXSnoa?from=from_copylink
 
+## Build Instructions
+
+### Simulation
+在主目录下运行。使用`rtl`文件夹下的`filelist.f`。`TOP`后跟着的是源文件列表中的顶层模块（目前使用的`cv32e40p_xilinx_tb`在`rtl/cv32e40p/fpga/tb/cv32e40p_xilinx_tb.sv`中）
+
+仿真使用Synopsis VCS，运行结果在`sim/build`。
+```
+make vcs TOP=cv32e40p_xilinx_tb
+```
+仿真并打开波形，打开的波形就是VCS生成的fsdb文件。Verdi也需要读取源文件列表，以提供上下文索引。
+```
+make verdi TOP=cv32e40p_xilinx_tb
+```
+
 ## Structure of `cv32e40p`
 
 `rtl` 应该是 CPU 核，包含总线的顶层在 `fpga` 里面。lab1所给的文件夹，还有`wrapper`和`macro`在外面，没搬到这里来。
