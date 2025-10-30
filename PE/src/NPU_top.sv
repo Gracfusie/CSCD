@@ -28,6 +28,9 @@ module NPU_top #(
   logic [DATA_WIDTH-1:0] npu_buffer [BUFFER_DEPTH-1:0];
 
   // Write demux
+  wire [DATA_WIDTH-1:0] npu_buffer_wdata [BUFFER_DEPTH-1:0];
+  wire [BUFFER_DEPTH-1:0] npu_buffer_wen;
+
   pe_demux #(
     .DATA_WIDTH (K_SIZE*DATA_WIDTH),
     .DATA_DEPTH (BUFFER_DEPTH),
@@ -36,11 +39,32 @@ module NPU_top #(
     .data_in (wdata_i[K_SIZE*DATA_WIDTH-1:0]),
     .sel     (addr_i[ADDR_W-1:0]),
     .en      (|wen_i),
-    .data_out(npu_buffer)
+    .data_out(npu_buffer_wdata)
   );
 
+  binary_decoder #(
+    .ADDR_WIDTH($clog2(BUFFER_DEPTH))
+  ) u_decoder (
+    .addr(),
+    .en(|wen_i),
+    .y(npu_buffer_wen)
+  );
+
+  always @(posedge clk or posedge reset) begin
+    if (reset) begin
+      npu_buffer <= '0;
+      rdata_o <= '0;
+    end else begin
+      // Write operation
+      for (int i = 0; i < BUFFER_DEPTH; i++) begin
+        if (npu_buffer_wen[i]) begin
+          npu_buffer[i] <= npu_buffer_wdata[i];
+        end
+      end
+    end    
+  end
+
+  // Read mux
   
-
-
 
 endmodule
