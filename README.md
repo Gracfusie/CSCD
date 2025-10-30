@@ -6,7 +6,7 @@ Feishu link: https://bcncr0uo1h2n.feishu.cn/wiki/Fgt2wYKJciuy69ksGFvc6SXSnoa?fro
 ## Build Instructions
 
 ### Simulation
-在主目录下运行。使用`rtl`文件夹下的`filelist.f`。`TOP`后跟着的是源文件列表中的顶层模块（目前使用的`cv32e40p_xilinx_tb`在`rtl/cv32e40p/fpga/tb/cv32e40p_xilinx_tb.sv`中）
+在主目录下运行。使用`rtl`文件夹下的`filelist.f`。`TOP`后跟着的是源文件列表中的顶层模块（目前使用的`cv32e40p_xilinx_tb`在`rtl/cv32e40p/fpga/tb/cv32e40p_xilinx_tb.sv`中），可更改总线的模块在`rtl/cv32e40p/fpga/rtl/src/cv32e40p_xilinx.sv`
 
 仿真使用Synopsis VCS，运行结果在`sim/build`。
 ```
