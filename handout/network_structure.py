@@ -10,8 +10,8 @@ def quantize_int8(tensor, is_weight=False):
     else:
         return torch.clamp(tensor.round(), 0, 255).to(torch.uint8)
 
-def quantized_relu8(x):
-    return torch.clamp(x, 0, 255).to(torch.uint8)
+#def quantized_relu8(x):
+#    return torch.clamp(x, 0, 255).to(torch.uint8)
 
 def mac_24bit(input_patch, weight, bias=None):
     inp = input_patch.to(torch.int32)
@@ -19,8 +19,11 @@ def mac_24bit(input_patch, weight, bias=None):
     acc = torch.sum(inp * w, dim=(1, 2, 3), keepdim=False)
     if bias is not None:
         acc += bias.to(torch.int32)
-    acc = torch.clamp(acc, -2**23, 2**23-1)
-    out8 = ((acc >> 8) & 0xFF).to(torch.uint8)
+    #acc = torch.clamp(acc, -2**23, 2**23-1)
+    #print(acc)
+    acc = torch.clamp(acc, 0, 2**23-1)
+    #print(acc)
+    out8 = ((acc ) & 0xFF).to(torch.uint8)
     return out8
 
 def quantized_conv2d(x, weight, bias, stride=1):
@@ -60,7 +63,9 @@ def quantized_linear(x, weight, bias):
     out = torch.zeros((N, Out), dtype=torch.uint8)
     for n in range(N):
         for o in range(Out):
+            if Out==10: print(o)
             val = mac_24bit(x[n:n+1, :].view(1, 1, 1, In), weight[o:o+1].view(1, 1, 1, In), bias[o])
+            if Out==10: print(val)
             out[n, o] = val
     return out
 
@@ -81,15 +86,15 @@ class QuantizedCNN(nn.Module):
     def forward(self, x):
         x = quantized_conv2d(x, self.q_conv1_w, self.q_conv1_b)
         #print("Shape of x:", x.shape)
-        x = quantized_relu8(x)
+        #x = quantized_relu8(x)
         x = quantized_conv3d(x, self.q_conv2_w, self.q_conv2_b)  # Use 3D convolution
         #print("Shape of x:", x.shape)
-        x = quantized_relu8(x)
+        #x = quantized_relu8(x)
         x = x.view(x.size(0), -1)  # Flatten for fully connected layers
         #print("Shape of x:", x.shape)
         x = quantized_linear(x, self.q_fc1_w, self.q_fc1_b)
         #print("Shape of x:", x.shape)
-        x = quantized_relu8(x)
+        #x = quantized_relu8(x)
         x = quantized_linear(x, self.q_fc2_w, self.q_fc2_b)
         #print("Shape of x:", x.shape)
         return x
@@ -123,8 +128,9 @@ conv1_weight = conv1_weight.reshape(10, 1, 3, 3)  # Reshaping 9x10 to 3x3x10x1
 conv2_weight = conv2_weight.reshape(1, 10, 3, 3)  # Reshaping 9x10 to 3x3x10x1
 fc1_weight = fc1_weight.reshape(10, 132)  # Reshaping 9x10 to 3x3x10x1
 fc2_weight = fc2_weight.reshape(1, 10)
+print(fc2_weight)
 
-# Bias initialization (zero, as per your requirement)
+# Bias initialization (zero)
 conv1_bias = np.zeros(10, dtype=np.int8)
 conv2_bias = np.zeros(3, dtype=np.int8)  # 3 output channels
 fc1_bias = np.zeros(10, dtype=np.int8)
@@ -155,3 +161,4 @@ output = model(x)
 
 # Print the output to check for both 0s and 1s
 print("Quantized Output:", output)
+
