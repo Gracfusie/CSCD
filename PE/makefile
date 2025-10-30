@@ -1,96 +1,74 @@
-# ============================================================
-# Icarus Verilog Makefile for PE accelerator project
-# - SystemVerilog 2012
-# - Per-TB build/run targets + grouped shortcuts
-# ============================================================
+# Simple Icarus Verilog build & run (per-testbench friendly)
+# Usage:
+#   make                # build and run all testbenches
+#   make build          # build all .vvp
+#   make run            # run all (assumes build done)
+#   make clean
+#
+# Per-testbench:
+#   make pe_mux         # build & run tb_pe_mux.sv
+#   make pe_core        # build & run tb_pe_core.sv
+#   make build-pe_mux   # only build
+#   make run-pe_mux     # only run
 
-# Tools
 IVERILOG ?= iverilog
 VVP      ?= vvp
+IVFLAGS  ?= -g2012 -Wall
 
-# Flags
-STD     ?= -g2012
-WARN    ?= -Wall -Wno-timescale
-DEFINES ?=
-# Add both src/ and test/ so `include` and file refs work
-INCS    ?= -I src -I test
-
-# Build output
+SRC_DIR   := src
+TB_DIR    := test
 BUILD_DIR := build
+WAVE_DIR  := waveforms
 
-# RTL + TB sources
-RTL      := src/pe_relu.sv src/pe_dmux.sv src/pe_core.sv src/pe_top.sv
-TB_PKG   := test/tb_pkg.sv
-TB_UNITS := test/tb_pe_relu.sv test/tb_pe_dmux.sv
-TB_CORE  := test/tb_pe_core.sv
-TB_TOP   := test/tb_pe_top.sv
+# Stems must match tb_<stem>.sv in $(TB_DIR)
+TESTS       := pe_mux pe_core
+VVP_FILES   := $(TESTS:%=$(BUILD_DIR)/%.vvp)
 
-# List of TB names (without path/suffix)
-TB_NAMES := tb_pe_relu tb_pe_dmux tb_pe_core tb_pe_top
+DESIGN_SRCS := $(SRC_DIR)/pe_mux.sv $(SRC_DIR)/pe_core.sv $(SRC_DIR)/pe_relu.sv
 
-# Default goal: run the top-level memory-like testbench
-.DEFAULT_GOAL := tb_pe_top
+.PHONY: all build run clean dirs help FORCE \
+        $(TESTS) $(TESTS:%=build-%) $(TESTS:%=run-%)
 
-# ------------------------------------------------------------
-# Pattern rule: compile a given TB (test/%.sv) into build/%.vvp
-# - $* is the stem (e.g., tb_pe_relu), use it as the top module
-# ------------------------------------------------------------
-$(BUILD_DIR)/%.vvp: $(TB_PKG) $(RTL) test/%.sv
-	@mkdir -p $(BUILD_DIR)
-	$(IVERILOG) $(STD) $(WARN) $(DEFINES) $(INCS) -s $* -o $@ $^
+all: build run
 
-# ------------------------------------------------------------
-# Convenience run targets
-#   e.g. `make run-tb_pe_relu`
-# ------------------------------------------------------------
-run-%: $(BUILD_DIR)/%.vvp
-	$(VVP) $<
-
-# Friendly aliases without 'run-'
-tb_pe_relu: run-tb_pe_relu
-tb_pe_dmux: run-tb_pe_dmux
-tb_pe_core: run-tb_pe_core
-tb_pe_top:  run-tb_pe_top
-
-# ------------------------------------------------------------
-# Grouped shortcuts
-# ------------------------------------------------------------
-unit: tb_pe_relu tb_pe_dmux
-core: tb_pe_core
-top:  tb_pe_top
-all:  unit core top
-
-# Run everything in sequence
-regress: all
-
-# ------------------------------------------------------------
-# Cleaning
-# ------------------------------------------------------------
-clean:
-	@rm -rf $(BUILD_DIR) *.vcd *.fsdb
-
-# ------------------------------------------------------------
-# Help
-# ------------------------------------------------------------
 help:
 	@echo "Targets:"
-	@echo "  tb_pe_relu    - build & run ReLU unit TB"
-	@echo "  tb_pe_dmux    - build & run DMUX unit TB"
-	@echo "  tb_pe_core    - build & run PE core TB"
-	@echo "  tb_pe_top     - build & run top-level (memory-like) TB [default]"
-	@echo "  unit          - run unit TBs (relu, dmux)"
-	@echo "  core          - run core TB"
-	@echo "  top           - run top TB"
-	@echo "  all           - run unit + core + top"
-	@echo "  regress       - alias of 'all'"
-	@echo "  clean         - remove build products"
+	@echo "  make / make all     - build and run all testbenches"
+	@echo "  make build          - build all .vvp"
+	@echo "  make run            - run all (assumes build done)"
+	@echo "  make clean          - remove build and waveform directories"
 	@echo ""
-	@echo "Variables you can override:"
-	@echo "  IVERILOG, VVP, STD, WARN, DEFINES, INCS"
-	@echo "Examples:"
-	@echo "  make               # runs tb_pe_top"
-	@echo "  make run-tb_pe_relu"
-	@echo "  make all"
-	@echo "  make clean"
+	@echo "Per-testbench:"
+	@echo "  make <name>         - build & run tb_<name>.sv"
+	@echo "  make build-<name>   - only build <name>"
+	@echo "  make run-<name>     - only run <name>"
+	@echo ""
+	@echo "Defined testbenches: $(TESTS)"
 
-.PHONY: run-% tb_pe_relu tb_pe_dmux tb_pe_core tb_pe_top unit core top all regress clean help
+dirs:
+	@mkdir -p $(BUILD_DIR) $(WAVE_DIR)
+
+# Build all
+build: $(VVP_FILES)
+
+# Run all (chains through run-<name> targets)
+run: $(TESTS:%=run-%)
+
+# Compile a single testbench
+$(BUILD_DIR)/%.vvp: $(TB_DIR)/tb_%.sv $(DESIGN_SRCS) | dirs
+	$(IVERILOG) $(IVFLAGS) -o $@ $^
+
+# Always run, even if the .vvp timestamp hasn't changed
+FORCE:
+
+run-%: $(BUILD_DIR)/%.vvp FORCE | dirs
+	$(VVP) $<
+
+build-%: $(BUILD_DIR)/%.vvp
+
+# IMPORTANT: Make these aliases real recipes so 'make pe_mux' never says "Nothing to be done"
+$(TESTS): %:
+	@$(MAKE) run-$@
+	
+clean:
+	@rm -rf $(BUILD_DIR) $(WAVE_DIR)
