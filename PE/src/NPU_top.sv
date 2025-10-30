@@ -24,10 +24,13 @@ module NPU_top #(
 );
 
   // NPU buffer
-  parameter int BUFFER_DEPTH = (N+1)*K_SIZE;
-  logic [DATA_WIDTH-1:0] npu_buffer [BUFFER_DEPTH-1:0];
+  parameter int BUFFER_DEPTH = (2*N+1)*K_SIZE; // 63
+  logic [K_SIZE*DATA_WIDTH-1:0] npu_buffer [BUFFER_DEPTH-1:0];
+  wire [DATA_WIDTH-1:0] npu_buffer_flattened [K_SIZE*BUFFER_DEPTH-1:0];
+  assign npu_buffer_flattened = npu_buffer;
 
   // Write demux
+  // (0-9)*9 for weights, (10-19)*9 for direct inputs, 20*9 for broadcast inputs
   wire [DATA_WIDTH-1:0] npu_buffer_wdata [BUFFER_DEPTH-1:0];
   wire [BUFFER_DEPTH-1:0] npu_buffer_wen;
 
@@ -65,6 +68,57 @@ module NPU_top #(
   end
 
   // Read mux
-  
+  wire [DATA_WIDTH-1:0] a_mul [N-1:0];
+  wire [DATA_WIDTH-1:0] b_mul [N-1:0];
+
+  generate
+    for (genvar i = 0; i < N; i++) begin : PE_MUX_GEN_WEIGHT
+      pe_mux #(
+        .WIDTH(DATA_WIDTH),
+        .DEPTH(K_SIZE*K_SIZE),
+        .SEL_WIDTH($clog2(K_SIZE*K_SIZE))
+      ) u_pe_mux (
+        .data_in (npu_buffer_flattened[i*K_SIZE*K_SIZE +: K_SIZE*K_SIZE]),
+        .sel     (),
+        .data_out(a_mul[i])
+      );
+    end
+  endgenerate
+
+  generate
+    for (genvar i = 0; i < N; i++) begin : PE_MUX_GEN_INPUT
+      pe_mux #(
+        .WIDTH(DATA_WIDTH),
+        .DEPTH(K_SIZE*K_SIZE*2),
+        .SEL_WIDTH($clog2(K_SIZE*K_SIZE*2))
+      ) u_pe_mux (
+        .data_in ({npu_buffer_flattened[(N+i)*K_SIZE*K_SIZE +: K_SIZE*K_SIZE], npu_buffer_flattened[2*N*K_SIZE*K_SIZE +: K_SIZE*K_SIZE]}),
+        .sel     (),
+        .data_out(b_mul[i])
+      );
+    end
+  endgenerate
+
+  // PE cores
+  generate
+    for (genvar i = 0; i < N; i++) begin: PE_CORE_GEN
+      pe_core #(
+        .W_IN(DATA_WIDTH),
+        .W_MUL(2*DATA_WIDTH),
+        .W_ACC(3*DATA_WIDTH)
+      ) u_pe_core (
+        .clk     (clk),
+        .reset   (reset),
+        .pe_en   (),
+        .mode_sel(),
+        .reg_reset(),
+        .a_in    (a_mul[i]),
+        .b_in    (b_mul[i]),
+        .results()
+      );
+    end
+  endgenerate
+
+
 
 endmodule

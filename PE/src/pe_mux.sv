@@ -6,9 +6,10 @@
 
 module pe_mux #(
     parameter WIDTH = 8,      // Data width
-    parameter SEL_WIDTH = 3   // Select signal width, supports 2^SEL_WIDTH inputs
+    parameter DEPTH = 8,      // Number of inputs
+    parameter SEL_WIDTH = $clog2(DEPTH)   // Select signal width, supports 2^SEL_WIDTH inputs
 ) (
-    input  logic [WIDTH-1:0] data_in [(1<<SEL_WIDTH)-1:0],  // Input data array
+    input  logic [WIDTH-1:0] data_in [DEPTH-1:0],  // Input data array
     input  logic [SEL_WIDTH-1:0] sel,                       // Select signal
     output logic [WIDTH-1:0] data_out                       // Selected output
 );
