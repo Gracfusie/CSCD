@@ -1,3 +1,15 @@
 Compiling pe_mux...
-src/pe_mux.sv:4: warning: timescale for pe_mux inherited from another file.
+test/tb_pe_mux.sv:68: syntax error
+test/tb_pe_mux.sv:1: error: Syntax error in variable list.
+test/tb_pe_mux.sv:71: syntax error
+test/tb_pe_mux.sv:71: Syntax in assignment statement l-value.
+test/tb_pe_mux.sv:73: syntax error
+test/tb_pe_mux.sv:75: syntax error
+test/tb_pe_mux.sv:75: error: Malformed statement
+test/tb_pe_mux.sv:73: error: Malformed conditional expression.
+test/tb_pe_mux.sv:130: syntax error
+test/tb_pe_mux.sv:130: error: Malformed statement
+test/tb_pe_mux.sv:131: syntax error
+test/tb_pe_mux.sv:131: error: Malformed statement
+src/pe_mux.sv:7: warning: timescale for pe_mux inherited from another file.
 test/tb_pe_mux.sv:1: ...: The inherited timescale is here.

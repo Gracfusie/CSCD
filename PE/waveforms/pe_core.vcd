@@ -1,5 +1,5 @@
 $date
-	Thu Oct 30 19:27:44 2025
+	Thu Oct 30 20:52:27 2025
 $end
 $version
 	Icarus Verilog
@@ -40,34 +40,34 @@ $var wire 8 : a_mul [7:0] $end
 $var wire 8 ; b_mul [7:0] $end
 $var wire 1 * clk $end
 $var wire 1 , mode_sel $end
+$var wire 24 < mux_out_s3 [23:0] $end
 $var wire 1 1 pe_en $end
 $var wire 1 5 reg_reset $end
 $var wire 1 9 reset $end
-$var wire 24 < relu_out_s3 [23:0] $end
-$var wire 24 = mux_out_s3 [23:0] $end
-$var parameter 32 > W_ACC $end
-$var parameter 32 ? W_IN $end
-$var parameter 32 @ W_MUL $end
-$var reg 8 A a_s0 [7:0] $end
-$var reg 24 B acc_s2 [23:0] $end
-$var reg 8 C b_s0 [7:0] $end
-$var reg 1 D mode_sel_d1 $end
-$var reg 1 E mode_sel_d2 $end
-$var reg 1 F mode_sel_d3 $end
-$var reg 16 G mul_s1 [15:0] $end
-$var reg 1 H pe_en_d1 $end
-$var reg 1 I pe_en_d2 $end
-$var reg 1 J pe_en_d3 $end
-$var reg 1 K reg_reset_d1 $end
-$var reg 1 L reg_reset_d2 $end
-$var reg 1 M reg_reset_d3 $end
-$var reg 24 N results [23:0] $end
+$var wire 24 = relu_out_s3 [23:0] $end
+$var wire 24 > mux_data_out [23:0] $end
+$var parameter 32 ? W_ACC $end
+$var parameter 32 @ W_IN $end
+$var parameter 32 A W_MUL $end
+$var reg 8 B a_s0 [7:0] $end
+$var reg 24 C acc_s2 [23:0] $end
+$var reg 8 D b_s0 [7:0] $end
+$var reg 1 E mode_sel_d1 $end
+$var reg 1 F mode_sel_d2 $end
+$var reg 1 G mode_sel_d3 $end
+$var reg 16 H mul_s1 [15:0] $end
+$var reg 1 I pe_en_d1 $end
+$var reg 1 J pe_en_d2 $end
+$var reg 1 K pe_en_d3 $end
+$var reg 1 L reg_reset_d1 $end
+$var reg 1 M reg_reset_d2 $end
+$var reg 1 N reg_reset_d3 $end
+$var reg 24 O results [23:0] $end
 $scope module u_mux $end
-$var wire 24 O a [23:0] $end
-$var wire 1 F sel $end
-$var wire 24 P b [23:0] $end
-$var parameter 32 Q W $end
-$var reg 24 R y [23:0] $end
+$var wire 1 G sel $end
+$var parameter 32 P SEL_WIDTH $end
+$var parameter 32 Q WIDTH $end
+$var reg 24 R data_out [23:0] $end
 $upscope $end
 $scope module u_relu $end
 $var wire 24 S din [23:0] $end
@@ -83,9 +83,10 @@ $comment Show the parameter values. $end
 $dumpall
 b11000 U
 b11000 Q
-b10000 @
-b1000 ?
-b11000 >
+b1 P
+b10000 A
+b1000 @
+b11000 ?
 b10000 $
 b1000 #
 b11000 "
@@ -95,22 +96,21 @@ $dumpvars
 b0 T
 b0 S
 b0 R
-b0 P
 b0 O
-b0 N
+0N
 0M
 0L
 0K
 0J
 0I
-0H
-b0 G
+b0 H
+0G
 0F
 0E
-0D
+b0 D
 b0 C
 b0 B
-b0 A
+b0 >
 b0 =
 b0 <
 b0 ;
@@ -167,7 +167,7 @@ b0 &
 15
 0*
 #35000
-1K
+1L
 16
 1*
 #40000
@@ -176,8 +176,8 @@ b0 &
 #45000
 17
 06
-1L
-0K
+1M
+0L
 1*
 #50000
 b11111110 (
@@ -187,11 +187,11 @@ b11 :
 11
 0*
 #55000
-b11111110 C
-b11 A
-1M
-0L
-1H
+b11111110 D
+b11 B
+1N
+0M
+1I
 b11111110 )
 b11 &
 18
@@ -210,11 +210,11 @@ b1 )
 b100 &
 08
 13
-b1111111111111010 G
-b1 C
-b100 A
-0M
-1I
+b1111111111111010 H
+b1 D
+b100 B
+0N
+1J
 1*
 #70000
 b0 (
@@ -224,14 +224,14 @@ b0 :
 01
 0*
 #75000
-b111111111111111111111010 =
+b111111111111111111111010 <
+b111111111111111111111010 >
 b111111111111111111111010 R
-b111111111111111111111010 B
-b111111111111111111111010 O
+b111111111111111111111010 C
 b111111111111111111111010 S
-b100 G
-1J
-0H
+b100 H
+1K
+0I
 b111111111111111111111010 '
 b100 0
 14
@@ -246,7 +246,8 @@ b1000 :
 11
 0*
 #85000
-b111111111111111111111110 =
+b111111111111111111111110 <
+b111111111111111111111110 >
 b111111111111111111111110 R
 b111111111111111111111010 +
 b111111111111111111111110 '
@@ -256,15 +257,14 @@ b1000 &
 03
 12
 b111111111111111111111010 !
-b111111111111111111111010 N
-b111111111111111111111110 B
-b111111111111111111111110 O
+b111111111111111111111010 O
+b111111111111111111111110 C
 b111111111111111111111110 S
-b11111101 C
-b1000 A
-1D
-0I
-1H
+b11111101 D
+b1000 B
+1E
+0J
+1I
 1*
 #90000
 b1 (
@@ -274,13 +274,13 @@ b10 :
 0*
 #95000
 b111111111111111111111110 !
-b111111111111111111111110 N
-b1111111111101000 G
-b1 C
-b10 A
-1E
-0J
-1I
+b111111111111111111111110 O
+b1111111111101000 H
+b1 D
+b10 B
+1F
+0K
+1J
 b111111111111111111111110 +
 b1111111111101000 0
 b1 )
@@ -296,7 +296,8 @@ b1010 %
 b1010 :
 0*
 #105000
-b0 =
+b0 <
+b0 >
 b0 R
 b111111111111111111100110 '
 b10 0
@@ -304,14 +305,13 @@ b11111011 )
 b1010 &
 1/
 14
-b111111111111111111100110 B
-b111111111111111111100110 O
+b111111111111111111100110 C
 b111111111111111111100110 S
-b10 G
-b11111011 C
-b1010 A
-1F
-1J
+b10 H
+b11111011 D
+b1010 B
+1G
+1K
 1*
 #110000
 15
@@ -323,13 +323,12 @@ b0 :
 0*
 #115000
 b0 !
-b0 N
-b111111111111111111101000 B
-b111111111111111111101000 O
+b0 O
+b111111111111111111101000 C
 b111111111111111111101000 S
-b1111111111001110 G
-1K
-0H
+b1111111111001110 H
+1L
+0I
 b0 +
 b111111111111111111101000 '
 b1111111111001110 0
@@ -352,15 +351,14 @@ b1 &
 06
 03
 12
-b111111111111111110110110 B
-b111111111111111110110110 O
+b111111111111111110110110 C
 b111111111111111110110110 S
-b11111111 C
-b1 A
-1L
-0K
-0I
-1H
+b11111111 D
+b1 B
+1M
+0L
+0J
+1I
 1*
 #130000
 0,
@@ -370,17 +368,16 @@ b1010 %
 b1010 :
 0*
 #135000
-b0 B
-b0 O
+b0 C
 b0 S
-b1111111111111111 G
-b1 C
-b1010 A
-1M
-0L
-0D
-0J
-1I
+b1111111111111111 H
+b1 D
+b1010 B
+1N
+0M
+0E
+0K
+1J
 b0 '
 b1111111111111111 0
 b1 )
@@ -399,13 +396,12 @@ b1010 0
 08
 0.
 14
-b111111111111111111111111 B
-b111111111111111111111111 O
+b111111111111111111111111 C
 b111111111111111111111111 S
-b1010 G
-0M
-0E
-1J
+b1010 H
+0N
+0F
+1K
 1*
 #150000
 b0 (
@@ -415,16 +411,15 @@ b0 :
 01
 0*
 #155000
-b1001 <
-b1001 P
-b1001 T
 b1001 =
+b1001 T
+b1001 <
+b1001 >
 b1001 R
-b1001 B
-b1001 O
+b1001 C
 b1001 S
-0F
-0H
+0G
+0I
 b1001 '
 0/
 02
@@ -433,26 +428,25 @@ b1001 '
 0*
 #165000
 b10011 =
-b10011 R
-b10011 <
-b10011 P
 b10011 T
+b10011 <
+b10011 >
+b10011 R
 b1001 +
 b10011 '
 03
 b1001 !
-b1001 N
-b10011 B
-b10011 O
+b1001 O
+b10011 C
 b10011 S
-0I
+0J
 1*
 #170000
 0*
 #175000
 b10011 !
-b10011 N
-0J
+b10011 O
+0K
 b10011 +
 04
 1*
