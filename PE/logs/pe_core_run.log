@@ -1,0 +1,11 @@
+Running pe_core...
+VCD info: dumpfile waveforms/pe_core.vcd opened for output.
+[85000] OK: results=0
+[95000] OK: results=-6
+[115000] OK: results=-2
+[125000] OK: results=0
+[135000] OK: results=0
+[155000] OK: results=0
+[165000] OK: results=0
+[175000] OK: results=9
+test/tb_pe_core.sv:104: $finish called at 265000 (1ps)

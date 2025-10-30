@@ -1,0 +1,3 @@
+Compiling pe_mux...
+src/pe_mux.sv:4: warning: timescale for pe_mux inherited from another file.
+test/tb_pe_mux.sv:1: ...: The inherited timescale is here.

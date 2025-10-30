@@ -1,0 +1,10 @@
+Running pe_mux...
+VCD info: dumpfile waveforms/pe_mux.vcd opened for output.
+ time   sel        a                b                y
+    0   0  0  0  0
+ 5000   0  100  -50  100
+25000   1  100  -50  -50
+35000   0  -12345  7  -12345
+45000   1  -12345  7  7
+55000   0  0  0  0
+test/tb_pe_mux.sv:35: $finish called at 75000 (1ps)

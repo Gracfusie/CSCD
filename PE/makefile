@@ -1,74 +1,109 @@
-# Simple Icarus Verilog build & run (per-testbench friendly)
+# Simple Icarus Verilog build & run
 # Usage:
-#   make                # build and run all testbenches
-#   make build          # build all .vvp
-#   make run            # run all (assumes build done)
+#   make                 # build and run both sims, generate VCDs
+#   make build           # only compile .vvp (all or TB=<name>)
+#   make run             # run sims (all or TB=<name>)
+#   make build-pe_mux    # only compile single testbench (shortcut)
+#   make run-pe_mux      # only run single testbench (shortcut)
+#   make list            # list available testbenches
+#   make help            # show help
 #   make clean
-#
-# Per-testbench:
-#   make pe_mux         # build & run tb_pe_mux.sv
-#   make pe_core        # build & run tb_pe_core.sv
-#   make build-pe_mux   # only build
-#   make run-pe_mux     # only run
+
+SHELL    := /bin/bash
 
 IVERILOG ?= iverilog
 VVP      ?= vvp
 IVFLAGS  ?= -g2012 -Wall
 
-SRC_DIR   := src
-TB_DIR    := test
 BUILD_DIR := build
 WAVE_DIR  := waveforms
+LOG_DIR   := logs
 
-# Stems must match tb_<stem>.sv in $(TB_DIR)
-TESTS       := pe_mux pe_core
-VVP_FILES   := $(TESTS:%=$(BUILD_DIR)/%.vvp)
+# ---- Tests (explicit list to keep per-TB deps simple) ----
+TESTS := pe_mux pe_core
 
-DESIGN_SRCS := $(SRC_DIR)/pe_mux.sv $(SRC_DIR)/pe_core.sv $(SRC_DIR)/pe_relu.sv
+# ---- Outputs ----
+PE_MUX_VVP  := $(BUILD_DIR)/pe_mux.vvp
+PE_CORE_VVP := $(BUILD_DIR)/pe_core.vvp
 
-.PHONY: all build run clean dirs help FORCE \
-        $(TESTS) $(TESTS:%=build-%) $(TESTS:%=run-%)
+# ---- Sources ----
+DESIGN_SRCS := src/pe_mux.sv src/pe_core.sv src/pe_relu.sv
+
+# Per-testbench source groupings (kept as in your original)
+SRCS_pe_mux  := test/tb_pe_mux.sv src/pe_mux.sv
+SRCS_pe_core := test/tb_pe_core.sv $(DESIGN_SRCS)
+
+.PHONY: all build run clean dirs help list run-% build-%
 
 all: build run
 
-help:
-	@echo "Targets:"
-	@echo "  make / make all     - build and run all testbenches"
-	@echo "  make build          - build all .vvp"
-	@echo "  make run            - run all (assumes build done)"
-	@echo "  make clean          - remove build and waveform directories"
-	@echo ""
-	@echo "Per-testbench:"
-	@echo "  make <name>         - build & run tb_<name>.sv"
-	@echo "  make build-<name>   - only build <name>"
-	@echo "  make run-<name>     - only run <name>"
-	@echo ""
-	@echo "Defined testbenches: $(TESTS)"
-
 dirs:
-	@mkdir -p $(BUILD_DIR) $(WAVE_DIR)
+	@mkdir -p $(BUILD_DIR) $(WAVE_DIR) $(LOG_DIR)
 
-# Build all
-build: $(VVP_FILES)
+# ---------- Build (all or single via TB=<name>) ----------
+# Examples:
+#   make build
+#   make build TB=pe_mux
+ifeq ($(strip $(TB)),)
+build: $(PE_MUX_VVP) $(PE_CORE_VVP)
+else
+build: $(BUILD_DIR)/$(TB).vvp
+endif
 
-# Run all (chains through run-<name> targets)
-run: $(TESTS:%=run-%)
+# Explicit .vvp rules with logging
+$(PE_MUX_VVP): $(SRCS_pe_mux) | dirs
+	@echo "Compiling pe_mux..." | tee $(LOG_DIR)/pe_mux_build.log
+	@$(IVERILOG) $(IVFLAGS) -o $@ $^ 2>&1 | tee -a $(LOG_DIR)/pe_mux_build.log
 
-# Compile a single testbench
-$(BUILD_DIR)/%.vvp: $(TB_DIR)/tb_%.sv $(DESIGN_SRCS) | dirs
-	$(IVERILOG) $(IVFLAGS) -o $@ $^
+$(PE_CORE_VVP): $(SRCS_pe_core) | dirs
+	@echo "Compiling pe_core..." | tee $(LOG_DIR)/pe_core_build.log
+	@$(IVERILOG) $(IVFLAGS) -o $@ $^ 2>&1 | tee -a $(LOG_DIR)/pe_core_build.log
 
-# Always run, even if the .vvp timestamp hasn't changed
-FORCE:
 
-run-%: $(BUILD_DIR)/%.vvp FORCE | dirs
-	$(VVP) $<
+# Shortcuts: build-<name>
+build-%: | dirs
+	@$(MAKE) $(BUILD_DIR)/$*.vvp
 
-build-%: $(BUILD_DIR)/%.vvp
+# ---------- Run (all or single via TB=<name>) ----------
+# Examples:
+#   make run
+#   make run TB=pe_core
+ifeq ($(strip $(TB)),)
+run: $(addprefix run-,$(TESTS))
+else
+run: run-$(TB)
+endif
 
-# IMPORTANT: Make these aliases real recipes so 'make pe_mux' never says "Nothing to be done"
-$(TESTS): %:
-	@$(MAKE) run-$@
-	
+# Generic runner with logging
+run-%: $(BUILD_DIR)/%.vvp | dirs
+	@echo "Running $*..." | tee $(LOG_DIR)/$*_run.log
+	@$(VVP) $< 2>&1 | tee -a $(LOG_DIR)/$*_run.log
+
+# ---------- Utilities ----------
+list:
+	@echo "Available testbenches:"; \
+	for t in $(TESTS); do echo "  $$t"; done
+
+help:
+	@echo "Makefile Help"
+	@echo
+	@echo "Targets:"
+	@echo "  make                 Build and run ALL testbenches"
+	@echo "  make build           Compile ALL testbenches"
+	@echo "  make run             Run ALL testbenches"
+	@echo "  make build TB=<name> Compile a SINGLE testbench (e.g., TB=pe_mux)"
+	@echo "  make run   TB=<name> Run a SINGLE testbench (e.g., TB=pe_core)"
+	@echo "  make build-<name>    Shortcut to build a SINGLE testbench"
+	@echo "  make run-<name>      Shortcut to run a SINGLE testbench"
+	@echo "  make list            List available testbenches"
+	@echo "  make clean           Remove build/, waveforms/, logs/"
+	@echo
+	@echo "Available testbenches:"
+	@for t in $(TESTS); do echo "  $$t"; done
+	@echo
+	@echo "Logs:"
+	@echo "  Compile logs: logs/<tb>_build.log"
+	@echo "  Run logs:     logs/<tb>_run.log"
+
 clean:
-	@rm -rf $(BUILD_DIR) $(WAVE_DIR)
+	@rm -rf $(BUILD_DIR) $(WAVE_DIR) $(LOG_DIR)

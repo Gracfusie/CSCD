@@ -1,0 +1,9 @@
+Compiling pe_core...
+src/pe_mux.sv:4: warning: timescale for pe_mux inherited from another file.
+test/tb_pe_core.sv:1: ...: The inherited timescale is here.
+src/pe_core.sv:10: warning: timescale for pe_core inherited from another file.
+test/tb_pe_core.sv:1: ...: The inherited timescale is here.
+src/pe_relu.sv:4: warning: timescale for pe_relu inherited from another file.
+test/tb_pe_core.sv:1: ...: The inherited timescale is here.
+test/tb_pe_core.sv:173: warning: System task ($display) cannot be synthesized in an always_ff process.
+test/tb_pe_core.sv:176: warning: System task ($display) cannot be synthesized in an always_ff process.
