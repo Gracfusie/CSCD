@@ -12,15 +12,19 @@ Feishu link: https://bcncr0uo1h2n.feishu.cn/wiki/Fgt2wYKJciuy69ksGFvc6SXSnoa?fro
 ```
 make vcs TOP=cv32e40p_xilinx_tb
 ```
-仿真并打开波形，打开的波形就是VCS生成的fsdb文件。Verdi也需要读取源文件列表，以提供上下文索引。
+仿真并打开波形，打开的波形就是VCS生成的fsdb文件。Verdi也需要读取源文件列表，以提供上下文索引。可以维护`sim/signal.rc`的波形
 ```
 make verdi TOP=cv32e40p_xilinx_tb
 ```
+## Project Structure 项目结构
+- PE 文件夹目前在开发 NPU，rtl 文件夹下面是设计。
+    - cv32e40p 是 lab1 提供的 cpu 和 axi 总线以及用于仿真的顶层，我们的设计基于此开发。
+    - RA1SHD_2048x32M8 是助教提供的 8KB SRAM。
+- sim 文件夹放了仿真脚本，仿真的生成在 build 子文件夹。
 
-## Structure of `cv32e40p`
+### Structure of `cv32e40p`
 
 `rtl` 应该是 CPU 核，包含总线的顶层在 `fpga` 里面。lab1所给的文件夹，还有`wrapper`和`macro`在外面，没搬到这里来。
-### 主要子目录与功能（按常见分类）
 #### 1) `src/cv32e40p/rtl`
 - 功能：CPU 核心（CV32E40P）的寄存器传输级实现。包含核心子模块（IF/ID/EX/MEM/WB）、ALU、控制器、加载存储单元、FPU wrapper/子模块、寄存器堆、队列/ FIFO 等。
 - 典型文件与作用：

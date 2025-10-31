@@ -1,2 +1,3 @@
 /sim/*
 +/sim/Makefile
++/sim/signal.rc

@@ -32,54 +32,80 @@ module cv32e40p_xilinx (
         .init_no      (                          ) // keep open
     );
 
+    //--------------------------- master & slave definition ---------------------------//
+
+    parameter SLAVE_NUM = 5;
+    parameter MASTER_NUM = 3;
+    parameter ID_WIDTH = $clog2(MASTER_NUM) + $clog2(SLAVE_NUM);
+
+    AXI_BUS #(
+        .AXI_ADDR_WIDTH ( 32    ),
+            // AXI 总线的地址宽度
+        .AXI_DATA_WIDTH ( 32    ),
+            // AXI 总线的数据宽度
+        .AXI_ID_WIDTH   ( $clog2(MASTER_NUM)     ),
+        .AXI_USER_WIDTH ( 1     )
+            // 设计中不考虑 User
+    ) slave[MASTER_NUM-1:0]();
+    // 在Master看来，AXI总线是它的slave. 设计中有3个master：[0]CPU-Instruction [1]CPU-Data [2]Debug Module，因此 ID_WIDTH = 2.
+    // CPU 对指令和数据的访问是分开的。
 
     AXI_BUS #(
         .AXI_ADDR_WIDTH ( 32    ),
         .AXI_DATA_WIDTH ( 32    ),
-        .AXI_ID_WIDTH   ( 2     ),
+        .AXI_ID_WIDTH   ( $clog2(SLAVE_NUM)+$clog2(MASTER_NUM)     ),
+            // ID位宽是：master需要的ID加上slave需要的ID
         .AXI_USER_WIDTH ( 1     )
-    ) slave[2:0]();
+    ) master[SLAVE_NUM-1:0]();//new slave: accelerator
+    // 在Slave看来，AXI总线是它的master. 设计中有5个slave: 
+    // [0]BootROM [1]SRAM(ICache) [2]DebugROM [3]SRAM(DCache) [4] Accelerator
 
-    AXI_BUS #(
-        .AXI_ADDR_WIDTH ( 32    ),
-        .AXI_DATA_WIDTH ( 32    ),
-        .AXI_ID_WIDTH   ( 4     ),
-        .AXI_USER_WIDTH ( 1     )
-    ) master[3:0]();//new slave: accelerator
+    // AXI_BUS 是 sv 的接口 interface 类型，封装 AXI 总线协议的信号集合。
 
-    
+    //--------------------------- Xbar instantialize ---------------------------//
+
     localparam axi_pkg::xbar_cfg_t AXI_XBAR_CFG = '{
-        NoSlvPorts:         3,
-        NoMstPorts:         4, // new slave: accelerator
+        NoSlvPorts:         MASTER_NUM, // num of MASTER
+        NoMstPorts:         SLAVE_NUM, // num of SLAVE
+        // new slave: accelerator
         MaxMstTrans:        1, // Probably requires update
         MaxSlvTrans:        1, // Probably requires update
         FallThrough:        1'b0,
         LatencyMode:        axi_pkg::CUT_ALL_PORTS,
-        AxiIdWidthSlvPorts: 2,
-        AxiIdUsedSlvPorts:  2,
+        AxiIdWidthSlvPorts: $clog2(MASTER_NUM), // MASTER ID width
+        AxiIdUsedSlvPorts:  $clog2(MASTER_NUM), // MASTER ID width
         UniqueIds:          1'b0,
         AxiAddrWidth:       32,
         AxiDataWidth:       32,
-        NoAddrRules:        4  // new slave: accelerator
+        NoAddrRules:        SLAVE_NUM  // num of SLAVE
+        // new slave: accelerator
     };
 
-    axi_pkg::xbar_rule_32_t [3:0] addr_map;
+    axi_pkg::xbar_rule_32_t [SLAVE_NUM-1:0] addr_map;
+    // 定义地址映射的规则，num of SLAVE
 
     localparam idx_rom      = 0;
-    localparam idx_sram     = 1;
-    localparam idx_acc      = 3;// new slave: accelerator
-    localparam rom_base     = 32'h00010000;
-    localparam rom_length   = 32'h00010000;
-    localparam sram_base    = 32'h80000000;
-    localparam sram_length  = 32'h10000000;
-    localparam acc_base     = 32'h70000000;// new slave: accelerator
-    localparam acc_length   = 32'h10000000;// new slave: accelerator
+    localparam idx_srami    = 1;
+    localparam idx_debug    = 2;
+    localparam idx_sramd    = 3;
+    localparam idx_acc      = 4;
+    localparam rom_base     = 32'h0001_0000;
+    localparam rom_length   = 32'h0001_0000; // 64KB Boot ROM
+    localparam srami_base   = 32'h8000_0000;
+    localparam srami_length = 32'h0000_2000; // SRAM have 8KB, 4B/word, 2048 words
+    localparam debug_base   = 32'h0000_0000;
+    localparam debug_length = 32'h0000_1000;
+    localparam sramd_base   = 32'h8100_0000;
+    localparam sramd_length = 32'h0000_2000;
+    localparam acc_base     = 32'h7000_0000;// new slave: accelerator
+    localparam acc_length   = 32'h1000_0000;// new slave: accelerator
 
     assign addr_map = '{
         '{ idx: idx_rom,       start_addr: rom_base,        end_addr: rom_base + rom_length   },
-        '{ idx: idx_sram,      start_addr: sram_base,       end_addr: sram_base + sram_length },
-        '{ idx: 2,             start_addr: 32'h0000_0000,   end_addr: 32'h00001000            },
-        '{ idx: idx_acc,      start_addr: acc_base,       end_addr: acc_base + acc_length }
+        '{ idx: idx_srami,     start_addr: srami_base,      end_addr: srami_base + srami_length },
+        '{ idx: idx_debug,     start_addr: debug_base,      end_addr: debug_base + debug_length },
+        '{ idx: idx_sramd,     start_addr: sramd_base,      end_addr: sramd_base + sramd_length },
+        '{ idx: idx_acc,       start_addr: acc_base,        end_addr: acc_base + acc_length }
     };
 
     axi_xbar_intf #(
@@ -90,12 +116,14 @@ module cv32e40p_xilinx (
         .clk_i                 ( clk_i      ),
         .rst_ni                ( ndmreset_n ),
         .test_i                ( 1'b0       ),
-        .slv_ports             ( slave      ),
-        .mst_ports             ( master     ),
-        .addr_map_i            ( addr_map   ),
+        .slv_ports             ( slave      ), // define above
+        .mst_ports             ( master     ), // define above
+        .addr_map_i            ( addr_map   ), // define above
         .en_default_mst_port_i ( '0         ),
         .default_mst_port_i    ( '0         )
     );
+
+    //--------------------------- Master Slave Connection ---------------------------//
 
     logic           instr_req;
     logic           instr_gnt;
@@ -178,7 +206,7 @@ module cv32e40p_xilinx (
         .ADDR_WIDTH         (32         ),
         .DATA_WIDTH         (32         ),
         .AXI_DATA_WIDTH     (32         ),
-        .AXI_ID_WIDTH       (4          ),
+        .AXI_ID_WIDTH       (ID_WIDTH          ),
         .MAX_OUTSTANDING_AW (7          ),
         .axi_req_t          (axi_req_t  ),
         .axi_rsp_t          (axi_resp_t )
@@ -194,7 +222,7 @@ module cv32e40p_xilinx (
         .wdata_i               ( '0             ),
         .be_i                  ( 4'b1111        ),
         .size_i                ( 2'b10          ),
-        .id_i                  ( 4'b0001          ),
+        .id_i                  ( 5'b00001          ),
         .valid_o               ( instr_rvalid   ),
         .rdata_o               ( instr_rdata    ),
         .id_o                  (                ),
@@ -216,7 +244,7 @@ module cv32e40p_xilinx (
         .ADDR_WIDTH         (32         ),
         .DATA_WIDTH         (32         ),
         .AXI_DATA_WIDTH     (32         ),
-        .AXI_ID_WIDTH       (4          ),
+        .AXI_ID_WIDTH       (ID_WIDTH          ),
         .MAX_OUTSTANDING_AW (7          ),
         .axi_req_t          (axi_req_t  ),
         .axi_rsp_t          (axi_resp_t )
@@ -232,7 +260,7 @@ module cv32e40p_xilinx (
         .wdata_i               ( data_wdata     ),
         .be_i                  ( data_be        ),
         .size_i                ( 2'b10          ),
-        .id_i                  ( 4'b0010          ),
+        .id_i                  ( 5'b00010          ),
         .valid_o               ( data_rvalid    ),
         .rdata_o               ( data_rdata     ),
         .id_o                  (                ),
@@ -288,14 +316,14 @@ module cv32e40p_xilinx (
     logic [31:0]    dm_master_r_rdata;
 
     axi2mem #(
-        .AXI_ID_WIDTH   ( 4    ),
+        .AXI_ID_WIDTH   ( ID_WIDTH    ),
         .AXI_ADDR_WIDTH ( 32        ),
         .AXI_DATA_WIDTH ( 32        ),
         .AXI_USER_WIDTH ( 1        )
     ) i_dm_axi2mem (
         .clk_i      ( clk_i                       ),
         .rst_ni     ( rst_ni                     ),
-        .slave      ( master[2]           ),
+        .slave      ( master[idx_debug]           ),
         .req_o      ( dm_slave_req              ),
         .we_o       ( dm_slave_we               ),
         .addr_o     ( dm_slave_addr             ),
@@ -349,7 +377,7 @@ module cv32e40p_xilinx (
         .ADDR_WIDTH         (32         ),
         .DATA_WIDTH         (32         ),
         .AXI_DATA_WIDTH     (32         ),
-        .AXI_ID_WIDTH       (4          ),
+        .AXI_ID_WIDTH       (ID_WIDTH          ),
         .MAX_OUTSTANDING_AW (7          ),
         .axi_req_t          (axi_req_t  ),
         .axi_rsp_t          (axi_resp_t )
@@ -379,17 +407,11 @@ module cv32e40p_xilinx (
     `AXI_ASSIGN_TO_RESP(dm_axi_m_resp, slave[2])
 
     logic           rom_req;
-    logic		rom_we;
+    logic		    rom_we;
     logic [31:0]    rom_addr;
     logic [31:0]	rom_wdata;
     logic [31:0]    rom_rdata;
     
-    /*bootrom i_bootrom (
-        .clk_i   ( clk_i            ),
-        .req_i   ( rom_req          ),
-        .addr_i  ( rom_addr[15:0]   ),
-        .rdata_o ( rom_rdata        )
-    );*/
     
     bootram i_bootram (
 	.clk_i	(clk_i		),
@@ -402,7 +424,7 @@ module cv32e40p_xilinx (
     );
 
     axi2mem #(
-        .AXI_ID_WIDTH   ( 4     ),
+        .AXI_ID_WIDTH   ( ID_WIDTH     ),
         .AXI_ADDR_WIDTH ( 32    ),
         .AXI_DATA_WIDTH ( 32    ),
         .AXI_USER_WIDTH ( 1     )
@@ -418,98 +440,112 @@ module cv32e40p_xilinx (
         .data_i ( rom_rdata         )
     );
 
-	/*sram #(
-		.DATA_WIDTH ( 32 ),
-		.USER_EN    ( 0 ),
-		.SIM_INIT   ( "file" ),
-		.NUM_WORDS  ( 512 )
-	) i_sram (
-		.clk_i      ( clk_i             ),
-		.rst_ni     ( ndmreset_n        ),
-		.req_i      ( sram_req               ),
-		.we_i       ( sram_be & {4{sram_we}}                 ),
-		.addr_i     ( sram_addr[10:2] ),
-		.wuser_i    ( '0             ),
-		.wdata_i    ( sram_wdata             ),
-		.be_i       ( 4'b1111                ),
-		.ruser_o    (              ),
-		.rdata_o    ( sram_rdata             )
-	);*/
-	logic           sram_req;
-	logic           sram_we;
-	logic [31:0]    sram_addr;
-	logic [31:0]    sram_wdata;
-	logic [3:0]     sram_be;
-	logic [31:0]    sram_rdata;
-	//logic [2:0]		sram_req_bank;
-	//logic [2:0][31:0] sram_rdata_bank;
-	//logic [1:0]		sram_bank_buf;
-	/*always @(posedge clk_i or negedge rst_ni)begin
-		if(!rst_ni) begin
-			sram_bank_buf <= '0;
-		end
-		else begin
-			sram_bank_buf <= sram_addr[14:13];		
-		end
-	end
-	always_comb begin
-		sram_req_bank = '0;
-		if(sram_req) begin
-			sram_req_bank[sram_addr[14:13]] = 1'b1;
-		end
-		sram_rdata = sram_rdata_bank[sram_bank_buf];
-	end*/
+//--------------------------- idx_icache ---------------------------//
 
-	//genvar i;
-	//generate 
-	//	for(i = 0; i < 2; i = i + 1) begin
+	logic           srami_req;
+	logic           srami_we;
+	logic [31:0]    srami_addr;
+	logic [31:0]    srami_wdata;
+	logic [3:0]     srami_be;
+	logic [31:0]    srami_rdata;
+
+    logic [3:0]     srami_wen_n;
+    assign srami_wen_n = ~(srami_be & {4{srami_we}});
+
 `ifdef SIM
-			sram_ff #(
-				.AddrWidth(11),
-				.DataWidth(32)
-			) i_sram (
-				.clk_i(clk_i),
-				// .req_i(sram_req_bank[i]),
-                .req_i(sram_req),
-				.wen_i(sram_be & {4{sram_we}}),
-				.addr_i(sram_addr[12:2]),
-				.data_i(sram_wdata),
-				// .data_o(sram_rdata_bank[i])
-                .data_o(sram_rdata)
-			);
+    sram_ff #(
+        .AddrWidth(11), // 2048 Words
+        .DataWidth(32),
+        .INIT_FILE("../../rtl/cv32e40p/fpga/tb/srami_mount_test.hex")
+    ) i_srami (
+        .clk_i  (clk_i),
+        .req_i  (srami_req),
+        .wen_i  (srami_be & {4{srami_we}}),
+        .addr_i (srami_addr[12:2]),
+        .data_i (srami_wdata),
+        .data_o (srami_rdata)
+    );
 `else
-	TS1DA32KX32 i_sram (
-		.CLK	(clk_i				),
-		.A		(sram_addr[16:2]	),
-		.CEB	(~sram_req			),
-		.OEB	(1'b0				),
-		.GWEB	(1'b1				),
-		.BWEB	(~sram_we			),
-		.BWB	(~sram_be			),
-		.DIN	(sram_wdata			),
-		.DOUT	(sram_rdata			)
-	);
-			
+	RA1SHD_2048x32M8 i_icache_sram (
+        .Q   ( srami_rdata      ),
+        .CLK ( clk_i            ),
+        .CEN ( ~srami_req       ),     // low-active chip enable
+        .WEN ( srami_wen_n      ),     // low-active byte write enable
+        .A   ( srami_addr[12:2] ),     // word address (8KB = 2048 words)
+        .D   ( srami_wdata      ),
+        .OEN ( 1'b0             )      // low-active output enable, always enabled
+    );	
 `endif	
-
-	
-
     axi2mem #(
-        .AXI_ID_WIDTH   ( 4     ),
+        .AXI_ID_WIDTH   ( ID_WIDTH     ),
         .AXI_ADDR_WIDTH ( 32    ),
         .AXI_DATA_WIDTH ( 32    ),
         .AXI_USER_WIDTH ( 1     )
     ) i_axi2sram (
         .clk_i  ( clk_i             ),
         .rst_ni ( ndmreset_n        ),
-        .slave  ( master[idx_sram]  ),
-        .req_o  ( sram_req          ),
-        .we_o   ( sram_we           ),
-        .addr_o ( sram_addr         ),
-        .be_o   ( sram_be           ),
-        .data_o ( sram_wdata        ),
-        .data_i ( sram_rdata        )
+        .slave  ( master[idx_srami] ),
+        .req_o  ( srami_req         ),
+        .we_o   ( srami_we          ),
+        .addr_o ( srami_addr        ),
+        .be_o   ( srami_be          ), // byte enable
+        .data_o ( srami_wdata       ),
+        .data_i ( srami_rdata       )
     );
+
+//--------------------------- idx_dcache ---------------------------//
+
+    logic           sramd_req;
+    logic           sramd_we;
+    logic [31:0]    sramd_addr;
+    logic [31:0]    sramd_wdata;
+    logic [3:0]     sramd_be;
+    logic [31:0]    sramd_rdata;
+
+    logic [3:0]     sramd_wen_n;
+    assign sramd_wen_n = ~(sramd_be & {4{sramd_we}});
+`ifdef SIM
+    sram_ff #(
+        .AddrWidth(11), // 2048 Words
+        .DataWidth(32),
+        .INIT_FILE("../../rtl/cv32e40p/fpga/tb/sramd_mount_test.hex")
+    ) i_sramd (
+        .clk_i  (clk_i),
+        .req_i  (sramd_req),
+        .wen_i  (sramd_be & {4{sramd_we}}),
+        .addr_i (sramd_addr[12:2]),
+        .data_i (sramd_wdata),
+        .data_o (sramd_rdata)
+    );
+`else
+    RA1SHD_2048x32M8 i_dcache_sram (
+        .Q   ( sramd_rdata      ),
+        .CLK ( clk_i            ),
+        .CEN ( ~sramd_req       ),     // low-active chip enable
+        .WEN ( sramd_wen_n      ),     // low-active byte write enable
+        .A   ( sramd_addr[12:2] ),     // word address (8KB = 2048 words)
+        .D   ( sramd_wdata      ),
+        .OEN ( 1'b0             )      // low-active output enable, always enabled
+    );
+`endif
+    axi2mem #(
+        .AXI_ID_WIDTH   ( ID_WIDTH     ),
+        .AXI_ADDR_WIDTH ( 32    ),
+        .AXI_DATA_WIDTH ( 32    ),
+        .AXI_USER_WIDTH ( 1     )
+    ) i_axi2sramd (
+        .clk_i  ( clk_i             ),
+        .rst_ni ( ndmreset_n        ),
+        .slave  ( master[idx_sramd] ),
+        .req_o  ( sramd_req         ),
+        .we_o   ( sramd_we          ),
+        .addr_o ( sramd_addr        ),
+        .be_o   ( sramd_be          ), // byte enable
+        .data_o ( sramd_wdata       ),
+        .data_i ( sramd_rdata       )
+    );
+
+//--------------------------- idx_accelerator ---------------------------//
 
     logic           acc_req;
     logic           acc_we;
@@ -528,7 +564,7 @@ module cv32e40p_xilinx (
     );
 
     axi2mem #(
-        .AXI_ID_WIDTH   ( 4     ),
+        .AXI_ID_WIDTH   ( ID_WIDTH     ),
         .AXI_ADDR_WIDTH ( 32    ),
         .AXI_DATA_WIDTH ( 32    ),
         .AXI_USER_WIDTH ( 1     )
