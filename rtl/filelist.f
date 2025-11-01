@@ -13,6 +13,13 @@
 +incdir+../../rtl/cv32e40p/rtl/include/
 +incdir+../../rtl/cv32e40p/fpga/rtl/include/
 
+../../PE/src/pe_relu.sv
+../../PE/src/pe_mux.sv
+../../PE/src/pe_binary_decoder.sv
+../../PE/src/pe_demux.sv
+../../PE/src/pe_core.sv
+../../PE/src/NPU_top.sv
+
 ../../rtl/cv32e40p/fpga/rtl/src/sram_ff.sv
 // WARNING: ORDER is important !!!
 ../../rtl/cv32e40p/rtl/include/cv32e40p_pkg.sv

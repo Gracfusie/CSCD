@@ -553,14 +553,31 @@ module cv32e40p_xilinx (
     logic [31:0]    acc_wdata;
     logic [31:0]    acc_rdata;
 
-    accelerator_sim i_acc (
-        .clka   (clk_i              ),
-        .ena    (acc_req           ),
-        .wea    (acc_we   ),
-        .addra  (acc_addr[12:2]    ),
-        .dina   (acc_wdata         ),
-        .douta  (acc_rdata         ),
-        .rst_ni (ndmreset_n        )
+    // accelerator_sim i_acc (
+    //     .clka   (clk_i              ),
+    //     .ena    (acc_req           ),
+    //     .wea    (acc_we   ),
+    //     .addra  (acc_addr[12:2]    ),
+    //     .dina   (acc_wdata         ),
+    //     .douta  (acc_rdata         ),
+    //     .rst_ni (ndmreset_n        )
+    // );
+
+    NPU_top #(
+        .N(10),
+        .K_SIZE(3),
+        .DATA_WIDTH(8),
+        .AXI_WIDTH(32),
+        .ADDR_W(3)
+    ) i_npu (
+        .clk_i      (clk_i          ),
+        .reset      (~ndmreset_n    ),
+        // FIXME: use rst_n
+        .req_i      (acc_req        ),
+        .wen_i      (acc_we         ),
+        .addr_i     (acc_addr     ),
+        .wdata_i    (acc_wdata    ),
+        .rdata_o    (acc_rdata   )
     );
 
     axi2mem #(

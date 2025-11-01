@@ -45,7 +45,7 @@ module NPU_top #(
     .data_out(npu_buffer_wdata)
   );
 
-  binary_decoder #(
+  pe_binary_decoder #(
     .ADDR_WIDTH($clog2(BUFFER_DEPTH))
   ) u_decoder (
     .addr(),

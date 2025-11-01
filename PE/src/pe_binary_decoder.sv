@@ -4,7 +4,7 @@
 // lastEdit : 2025-10-16
 // describe : From Binary to One-Hot, Parameterized.
 
-module binary_decoder #(
+module pe_binary_decoder #(
     parameter ADDR_WIDTH = 3  // N-bit address => 2^N outputs
 ) (
     input  logic [ADDR_WIDTH-1:0] addr,

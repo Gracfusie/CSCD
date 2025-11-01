@@ -5,7 +5,7 @@
 // describe : Parameterized Demultiplexer (1-to-N Demux)
 
 
-module demux #(
+module pe_demux #(
     parameter DATA_WIDTH = 8,
     parameter DATA_DEPTH = 33,
     parameter SEL_WIDTH  = $clog2(DATA_DEPTH)
