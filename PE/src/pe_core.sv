@@ -152,7 +152,7 @@ module pe_core #(
   parameter int W_ACC  = 24
 ) (
   input  logic                    clk,          // work clock
-  input  logic                    reset,        // async, high-active
+  input  logic                    rst_n,        // async, high-active
   input  logic                    pe_en,        // start mult/acc 
   input  logic                    mode_sel,     // 0: raw; 1: ReLU
   input  logic                    reg_reset,    // clear accumulator (sync-piped)

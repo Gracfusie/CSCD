@@ -13,7 +13,7 @@ module NPU_top #(
   parameter int ADDR_W = 3  // enough for 0..4
 ) (
   input  logic               clk,
-  input  logic               reset,        // high-active
+  input  logic               rst_n,        // high-active
 
   // SRAM-like memory port (compatible with axi2mem style)
   input  logic               req_i,        // access qualifier (assume always 1'b1 OK)
@@ -22,6 +22,23 @@ module NPU_top #(
   input  logic [AXI_WIDTH-1:0]        wdata_i,
   output logic [AXI_WIDTH-1:0]        rdata_o
 );
+
+  // NPU scheduler
+  wire [N-1:0] pe_en, pe_mode_sel, pe_reg_reset;
+  npu_scheduler #(
+    .N(N),
+    .W_IN(DATA_WIDTH),
+    .MUX_WIDTH(4)
+  ) u_npu_scheduler (
+    .clk          (clk),
+    .rst_n        (rst_n),
+    .instr        (wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH]),
+
+    .pe_en        (pe_en),
+    .pe_mode_sel  (pe_mode_sel),
+    .pe_reg_reset (pe_reg_reset),
+    .pe_mux_sel   ()
+  );
 
   // NPU buffer
   parameter int BUFFER_DEPTH = (2*N+1)*K_SIZE; // 63
@@ -53,8 +70,8 @@ module NPU_top #(
     .y(npu_buffer_wen)
   );
 
-  always @(posedge clk or posedge reset) begin
-    if (reset) begin
+  always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
       npu_buffer <= '0;
       rdata_o <= '0;
     end else begin
@@ -108,10 +125,10 @@ module NPU_top #(
         .W_ACC(3*DATA_WIDTH)
       ) u_pe_core (
         .clk     (clk),
-        .reset   (reset),
-        .pe_en   (),
-        .mode_sel(),
-        .reg_reset(),
+        .rst_n   (rst_n),
+        .pe_en   (pe_en[i]),
+        .mode_sel(pe_mode_sel[i]),
+        .reg_reset(pe_reg_reset[i]),
         .a_in    (a_mul[i]),
         .b_in    (b_mul[i]),
         .results()
