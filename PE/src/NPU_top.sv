@@ -23,12 +23,30 @@ module NPU_top #(
   output logic [AXI_WIDTH-1:0]        rdata_o
 );
 
+  // NPU buffer
+  parameter int BUFFER_DEPTH = (2*N+1)*K_SIZE;          // 63
+  parameter int SEL_DEMUX_WIDTH = $clog2(BUFFER_DEPTH); // 6
+  logic [K_SIZE*DATA_WIDTH-1:0] npu_buffer [BUFFER_DEPTH-1:0];
+  wire [DATA_WIDTH-1:0] npu_buffer_flattened [K_SIZE*BUFFER_DEPTH-1:0];
+  assign npu_buffer_flattened = npu_buffer;
+
+  // MUX parameters
+  parameter int MUX_A_DEPTH = K_SIZE*K_SIZE;           // 9
+  parameter int SEL_MUX_A_WIDTH = $clog2(MUX_A_DEPTH); // 4
+  parameter int MUX_B_DEPTH = K_SIZE*K_SIZE*2;         // 18
+  parameter int SEL_MUX_B_WIDTH = $clog2(MUX_B_DEPTH); // 5
+
   // NPU scheduler
   wire [N-1:0] pe_en, pe_mode_sel, pe_reg_reset;
+  wire [SEL_DEMUX_WIDTH-1:0] pe_demux_sel;
+  wire [SEL_MUX_A_WIDTH-1:0] pe_mux_a_sel;
+  wire [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel;
   npu_scheduler #(
-    .N(N),
-    .W_IN(DATA_WIDTH),
-    .MUX_WIDTH(4)
+    .N               (N),
+    .W_IN            (DATA_WIDTH),
+    .SEL_DEMUX_WIDTH (SEL_DEMUX_WIDTH),
+    .SEL_MUX_A_WIDTH (SEL_MUX_A_WIDTH),
+    .SEL_MUX_B_WIDTH (SEL_MUX_B_WIDTH)
   ) u_npu_scheduler (
     .clk          (clk),
     .rst_n        (rst_n),
@@ -37,14 +55,10 @@ module NPU_top #(
     .pe_en        (pe_en),
     .pe_mode_sel  (pe_mode_sel),
     .pe_reg_reset (pe_reg_reset),
-    .pe_mux_sel   ()
+    .pe_demux_sel (pe_demux_sel),
+    .pe_mux_a_sel (pe_mux_a_sel),
+    .pe_mux_b_sel (pe_mux_b_sel)
   );
-
-  // NPU buffer
-  parameter int BUFFER_DEPTH = (2*N+1)*K_SIZE; // 63
-  logic [K_SIZE*DATA_WIDTH-1:0] npu_buffer [BUFFER_DEPTH-1:0];
-  wire [DATA_WIDTH-1:0] npu_buffer_flattened [K_SIZE*BUFFER_DEPTH-1:0];
-  assign npu_buffer_flattened = npu_buffer;
 
   // Write demux
   // (0-9)*9 for weights, (10-19)*9 for direct inputs, 20*9 for broadcast inputs
@@ -54,20 +68,21 @@ module NPU_top #(
   pe_demux #(
     .DATA_WIDTH (K_SIZE*DATA_WIDTH),
     .DATA_DEPTH (BUFFER_DEPTH),
-    .SEL_WIDTH  ($clog2(BUFFER_DEPTH))
+    .SEL_WIDTH  (SEL_DEMUX_WIDTH)
   ) u_demux (
     .data_in (wdata_i[K_SIZE*DATA_WIDTH-1:0]),
-    .sel     (addr_i[ADDR_W-1:0]),
+    .sel     (pe_demux_sel),
     .en      (|wen_i),
     .data_out(npu_buffer_wdata)
   );
 
   pe_binary_decoder #(
-    .ADDR_WIDTH($clog2(BUFFER_DEPTH))
+    .ADDR_WIDTH (SEL_DEMUX_WIDTH),
+    .DEPTH      (BUFFER_DEPTH)
   ) u_decoder (
-    .addr(),
-    .en(|wen_i),
-    .y(npu_buffer_wen)
+    .addr (pe_demux_sel),
+    .en   (|wen_i),
+    .y    (npu_buffer_wen)
   );
 
   always @(posedge clk or negedge rst_n) begin
@@ -91,12 +106,12 @@ module NPU_top #(
   generate
     for (genvar i = 0; i < N; i++) begin : PE_MUX_GEN_WEIGHT
       pe_mux #(
-        .WIDTH(DATA_WIDTH),
-        .DEPTH(K_SIZE*K_SIZE),
-        .SEL_WIDTH($clog2(K_SIZE*K_SIZE))
+        .WIDTH     (DATA_WIDTH),
+        .DEPTH     (MUX_A_DEPTH),
+        .SEL_WIDTH (SEL_MUX_A_WIDTH)
       ) u_pe_mux (
-        .data_in (npu_buffer_flattened[i*K_SIZE*K_SIZE +: K_SIZE*K_SIZE]),
-        .sel     (),
+        .data_in (npu_buffer_flattened[i*MUX_A_DEPTH +: MUX_A_DEPTH]),
+        .sel     (pe_mux_a_sel),
         .data_out(a_mul[i])
       );
     end
@@ -105,12 +120,12 @@ module NPU_top #(
   generate
     for (genvar i = 0; i < N; i++) begin : PE_MUX_GEN_INPUT
       pe_mux #(
-        .WIDTH(DATA_WIDTH),
-        .DEPTH(K_SIZE*K_SIZE*2),
-        .SEL_WIDTH($clog2(K_SIZE*K_SIZE*2))
+        .WIDTH    (DATA_WIDTH),
+        .DEPTH    (MUX_B_DEPTH),
+        .SEL_WIDTH(SEL_MUX_B_WIDTH)
       ) u_pe_mux (
-        .data_in ({npu_buffer_flattened[(N+i)*K_SIZE*K_SIZE +: K_SIZE*K_SIZE], npu_buffer_flattened[2*N*K_SIZE*K_SIZE +: K_SIZE*K_SIZE]}),
-        .sel     (),
+        .data_in ({npu_buffer_flattened[(N+i)*MUX_A_DEPTH +: MUX_A_DEPTH], npu_buffer_flattened[2*N*MUX_A_DEPTH +: MUX_A_DEPTH]}),
+        .sel     (pe_mux_b_sel),
         .data_out(b_mul[i])
       );
     end
@@ -120,18 +135,18 @@ module NPU_top #(
   generate
     for (genvar i = 0; i < N; i++) begin: PE_CORE_GEN
       pe_core #(
-        .W_IN(DATA_WIDTH),
+        .W_IN (DATA_WIDTH),
         .W_MUL(2*DATA_WIDTH),
         .W_ACC(3*DATA_WIDTH)
       ) u_pe_core (
-        .clk     (clk),
-        .rst_n   (rst_n),
-        .pe_en   (pe_en[i]),
-        .mode_sel(pe_mode_sel[i]),
+        .clk      (clk),
+        .rst_n    (rst_n),
+        .pe_en    (pe_en[i]),
+        .mode_sel (pe_mode_sel[i]),
         .reg_reset(pe_reg_reset[i]),
-        .a_in    (a_mul[i]),
-        .b_in    (b_mul[i]),
-        .results()
+        .a_in     (a_mul[i]),
+        .b_in     (b_mul[i]),
+        .results  ()
       );
     end
   endgenerate
