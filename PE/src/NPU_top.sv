@@ -69,7 +69,7 @@ module NPU_top #(
 
   // Write demux
   // (0-9)*9 for weights, (10-19)*9 for direct inputs, 20*9 for broadcast inputs
-  wire [BUFFER_DEPTH*K*DATA_WIDTH-1:0] npu_buffer_wdata;
+  wire [BUFFER_DEPTH*K_SIZE*DATA_WIDTH-1:0] npu_buffer_wdata;
   wire [BUFFER_DEPTH-1:0] npu_buffer_wen;
 
   pe_demux #(
