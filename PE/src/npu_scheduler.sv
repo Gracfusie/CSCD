@@ -17,6 +17,83 @@ module npu_scheduler #(
   output logic  [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel   // MUX B select
 );
 
+// Decode instructions to control signals
+logic start;
 
+
+
+// Define FSM states
+parameter IDLE       = 2'b00;
+parameter LOAD       = 2'b01;
+parameter COMPUTE    = 2'b10;
+parameter WRITE_BACK = 2'b11;
+logic [1:0] current_state, next_state;
+
+// State transition
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n)
+    current_state <= IDLE;
+  else
+    current_state <= next_state;
+end
+
+// Next state logic
+always_comb begin
+  case (current_state)
+    IDLE:       
+      next_state = start ? LOAD : IDLE;
+    LOAD:       
+      next_state = COMPUTE;
+    COMPUTE:    
+      next_state = WRITE_BACK;
+    WRITE_BACK: 
+      next_state = IDLE;
+    default:    
+      next_state = IDLE;
+  endcase
+end
+
+always_ff @(posedge clk or negedge rst_n) begin
+  case (current_state)
+    LOAD: begin
+      
+    end
+    default: 
+  endcase
+end
+
+
+
+
+// Output logic based on state
+always_comb begin
+  // Default values
+  pe_en         = '0;
+  pe_mode_sel   = '0;
+  pe_reg_reset  = '0;
+  pe_demux_sel  = '0;
+  pe_mux_a_sel  = '0;
+  pe_mux_b_sel  = '0;
+
+  case (current_state)
+    LOAD: begin
+      pe_en         = {N{1'b1}}; // Enable all PEs during load
+      pe_reg_reset  = {N{1'b1}}; // Reset registers during load
+      pe_demux_sel  = instr[SEL_DEMUX_WIDTH-1:0];
+    end
+    COMPUTE: begin
+      pe_en         = {N{1'b1}}; // Enable all PEs during compute
+      pe_mode_sel   = instr[SEL_MUX_A_WIDTH +: N]; // Mode select from instruction
+      pe_mux_a_sel  = instr[SEL_MUX_A_WIDTH-1:0];
+      pe_mux_b_sel  = instr[SEL_MUX_B_WIDTH-1:0];
+    end
+    WRITE_BACK: begin
+      pe_en         = {N{1'b0}}; // Disable all PEs during write back
+    end
+    default: begin
+      // Do nothing in IDLE state
+    end
+  endcase
+end
 
 endmodule
