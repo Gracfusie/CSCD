@@ -1,5 +1,7 @@
 # 状态机总结
 
+![流程图](./image/dataflow.png)
+
 1. `pe_reg_reset`：9次一更新。
 2. `pe_mode_sel`：基本都是全选，至少在第一层convolution中如此。
 3. `pe_mux_a_sel`：涉及到如何算卷积的方式，以及如何复用数据。
