@@ -1,35 +1,40 @@
-#####################################################################################
-# Description:  Top Makefile for Simulation, Synthesis and Physical Implementation
-# Author:       Mingxuan Li <mingxuanli_siris@163.com> [Peking University]
+# Simple Icarus Verilog build & run
+# Usage:
+#   make            # build and run both sims, generate VCDs
+#   make build      # only compile .vvp
+#   make run        # run sims (assumes build done)
+#   make clean
 
-# Copied and modified from: cv32e40p Makefile
-#####################################################################################
+IVERILOG ?= iverilog
+VVP      ?= vvp
+IVFLAGS  ?= -g2012 -Wall
 
-export SRC_DIR = $(PWD)/rtl
+BUILD_DIR     := build
+WAVE_DIR      := waveforms
 
-vcs:
-	$(MAKE) -C sim vcs TOP=$(TOP)
+PE_MUX_VVP    := $(BUILD_DIR)/pe_mux.vvp
+PE_CORE_VVP   := $(BUILD_DIR)/pe_core.vvp
 
-verdi:
-	$(MAKE) -C sim verdi TOP=$(TOP)
+DESIGN_SRCS   := src/pe_mux.sv src/pe_core.sv src/pe_relu.sv
 
-gate_vcs:
-	$(MAKE) -C sim gate_vcs TOP=$(TOP)
+.PHONY: all build run clean dirs
 
-gate_verdi:
-	$(MAKE) -C sim gate_verdi TOP=$(TOP)
+all: build run
 
-# genus:
-# 	$(MAKE) -C syn genus TOP=$(TOP)
+dirs:
+	@mkdir -p $(BUILD_DIR) $(WAVE_DIR)
 
-# restore_genus:
-# 	$(MAKE) -C syn restore TOP=$(TOP)
+build: $(PE_MUX_VVP) $(PE_CORE_VVP)
 
-# innovus:
-# 	$(MAKE) -C pnr innovus TOP=$(TOP)
+$(PE_MUX_VVP): test/tb_pe_mux.sv src/pe_mux.sv | dirs
+	$(IVERILOG) $(IVFLAGS) -o $@ $^
 
-# restore_innovus:
-# 	$(MAKE) -C pnr restore TOP=$(TOP) STAGE=$(STAGE)
+$(PE_CORE_VVP): test/tb_pe_core.sv $(DESIGN_SRCS) | dirs
+	$(IVERILOG) $(IVFLAGS) -o $@ $^
 
-# virtuoso:
-# 	$(MAKE) -C layout virtuoso
+run: | dirs
+	$(VVP) $(PE_MUX_VVP)
+	$(VVP) $(PE_CORE_VVP)
+
+clean:
+	@rm -rf $(BUILD_DIR) $(WAVE_DIR)
