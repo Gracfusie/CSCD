@@ -222,8 +222,8 @@ module pe_core #(
   // --------------------------
   // Async reset / sync pipeline
   // --------------------------
-  always_ff @(posedge clk or posedge rst_n) begin
-    if (rst_n) begin
+  always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
       // controls
       pe_en_d1     <= 1'b0;
       pe_en_d2     <= 1'b0;
