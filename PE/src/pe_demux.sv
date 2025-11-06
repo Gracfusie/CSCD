@@ -13,7 +13,7 @@ module pe_demux #(
     input  logic [DATA_WIDTH-1:0] data_in,
     input  logic [SEL_WIDTH-1:0]  sel,
     input  logic                  en,
-    output logic [DATA_WIDTH-1:0] data_out [DATA_DEPTH-1:0]
+    output logic [DATA_DEPTH*DATA_WIDTH-1:0] data_out
 );
 
     localparam NUM_OUTPUTS = 1 << SEL_WIDTH;
@@ -21,9 +21,9 @@ module pe_demux #(
     always_comb begin
         for (int i = 0; i < NUM_OUTPUTS; i++) begin
             if (en && (i == sel)) begin
-                data_out[i] = data_in;
+                data_out[(i+1)*DATA_WIDTH-1 -: DATA_WIDTH] = data_in;
             end else begin
-                data_out[i] = '0;
+                data_out[(i+1)*DATA_WIDTH-1 -: DATA_WIDTH] = '0;
             end
         end
     end

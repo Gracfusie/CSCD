@@ -26,8 +26,8 @@ module NPU_top #(
   // NPU buffer
   parameter int BUFFER_DEPTH = (2*N+1)*K_SIZE;          // 63
   parameter int SEL_DEMUX_WIDTH = $clog2(BUFFER_DEPTH); // 6
-  logic [K_SIZE*DATA_WIDTH-1:0] npu_buffer [BUFFER_DEPTH-1:0];
-  logic [DATA_WIDTH-1:0] npu_buffer_flattened [K_SIZE*BUFFER_DEPTH-1:0];
+  logic [K_SIZE*DATA_WIDTH-1:0] npu_buffer [0:BUFFER_DEPTH-1];
+  logic [DATA_WIDTH-1:0] npu_buffer_flattened [0:K_SIZE*BUFFER_DEPTH-1];
   always_comb begin
     for (int i = 0; i < BUFFER_DEPTH; i++) begin
       for (int j = 0; j < K_SIZE; j++) begin
@@ -69,7 +69,7 @@ module NPU_top #(
 
   // Write demux
   // (0-9)*9 for weights, (10-19)*9 for direct inputs, 20*9 for broadcast inputs
-  wire [DATA_WIDTH-1:0] npu_buffer_wdata [BUFFER_DEPTH-1:0];
+  wire [BUFFER_DEPTH*K*DATA_WIDTH-1:0] npu_buffer_wdata;
   wire [BUFFER_DEPTH-1:0] npu_buffer_wen;
 
   pe_demux #(
@@ -102,7 +102,7 @@ module NPU_top #(
       // Write operation
       for (int i = 0; i < BUFFER_DEPTH; i++) begin
         if (npu_buffer_wen[i]) begin
-          npu_buffer[i] <= npu_buffer_wdata[i];
+          npu_buffer[i] <= npu_buffer_wdata[(i+1)*(K_SIZE*DATA_WIDTH)-1 -: K_SIZE*DATA_WIDTH];
         end
       end
     end    
