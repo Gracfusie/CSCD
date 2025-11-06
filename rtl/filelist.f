@@ -18,6 +18,7 @@
 ../../PE/src/pe_binary_decoder.sv
 ../../PE/src/pe_demux.sv
 ../../PE/src/pe_core.sv
+../../PE/src/npu_scheduler.sv
 ../../PE/src/NPU_top.sv
 
 ../../rtl/cv32e40p/fpga/rtl/src/sram_ff.sv

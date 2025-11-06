@@ -570,9 +570,8 @@ module cv32e40p_xilinx (
         .AXI_WIDTH(32),
         .ADDR_W(3)
     ) i_npu (
-        .clk_i      (clk_i          ),
-        .reset      (~ndmreset_n    ),
-        // FIXME: use rst_n
+        .clk      (clk_i          ),
+        .rst_n      (ndmreset_n    ),
         .req_i      (acc_req        ),
         .wen_i      (acc_we         ),
         .addr_i     (acc_addr     ),

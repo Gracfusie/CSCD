@@ -208,6 +208,7 @@ module pe_core #(
 
   pe_mux #(
     .WIDTH(W_ACC),
+    .DEPTH(2),
     .SEL_WIDTH(1)
   ) u_mux (
     .data_in (mux_inputs),
@@ -221,8 +222,8 @@ module pe_core #(
   // --------------------------
   // Async reset / sync pipeline
   // --------------------------
-  always_ff @(posedge clk or posedge reset) begin
-    if (reset) begin
+  always_ff @(posedge clk or posedge rst_n) begin
+    if (rst_n) begin
       // controls
       pe_en_d1     <= 1'b0;
       pe_en_d2     <= 1'b0;

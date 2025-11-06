@@ -27,8 +27,15 @@ module NPU_top #(
   parameter int BUFFER_DEPTH = (2*N+1)*K_SIZE;          // 63
   parameter int SEL_DEMUX_WIDTH = $clog2(BUFFER_DEPTH); // 6
   logic [K_SIZE*DATA_WIDTH-1:0] npu_buffer [BUFFER_DEPTH-1:0];
-  wire [DATA_WIDTH-1:0] npu_buffer_flattened [K_SIZE*BUFFER_DEPTH-1:0];
-  assign npu_buffer_flattened = npu_buffer;
+  logic [DATA_WIDTH-1:0] npu_buffer_flattened [K_SIZE*BUFFER_DEPTH-1:0];
+  always_comb begin
+    for (int i = 0; i < BUFFER_DEPTH; i++) begin
+      for (int j = 0; j < K_SIZE; j++) begin
+        npu_buffer_flattened[i*K_SIZE + j] = npu_buffer[i][(j+1)*DATA_WIDTH-1 -: DATA_WIDTH];
+      end
+    end
+  end
+  // assign npu_buffer_flattened = npu_buffer;
 
   // MUX parameters
   parameter int MUX_A_DEPTH = K_SIZE*K_SIZE;           // 9
@@ -87,7 +94,9 @@ module NPU_top #(
 
   always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-      npu_buffer <= '0;
+      for (int i = 0; i < BUFFER_DEPTH; i++) begin
+        npu_buffer[i] <= '0;
+      end
       rdata_o <= '0;
     end else begin
       // Write operation
@@ -119,12 +128,17 @@ module NPU_top #(
 
   generate
     for (genvar i = 0; i < N; i++) begin : PE_MUX_GEN_INPUT
+      wire [DATA_WIDTH-1:0] data_in [0:MUX_B_DEPTH-1];
+      assign data_in[0:MUX_A_DEPTH-1] = npu_buffer_flattened[(N+i)*MUX_A_DEPTH +: MUX_A_DEPTH];
+      assign data_in[MUX_A_DEPTH:MUX_B_DEPTH-1] = npu_buffer_flattened[2*N*MUX_A_DEPTH +: MUX_A_DEPTH];
+
       pe_mux #(
         .WIDTH    (DATA_WIDTH),
         .DEPTH    (MUX_B_DEPTH),
         .SEL_WIDTH(SEL_MUX_B_WIDTH)
       ) u_pe_mux (
-        .data_in ({npu_buffer_flattened[(N+i)*MUX_A_DEPTH +: MUX_A_DEPTH], npu_buffer_flattened[2*N*MUX_A_DEPTH +: MUX_A_DEPTH]}),
+        // .data_in ({npu_buffer_flattened[(N+i)*MUX_A_DEPTH +: MUX_A_DEPTH], npu_buffer_flattened[2*N*MUX_A_DEPTH +: MUX_A_DEPTH]}),
+        .data_in (data_in),
         .sel     (pe_mux_b_sel),
         .data_out(b_mul[i])
       );
@@ -144,8 +158,8 @@ module NPU_top #(
         .pe_en    (pe_en[i]),
         .mode_sel (pe_mode_sel[i]),
         .reg_reset(pe_reg_reset[i]),
-        .a_in     (a_mul[i]),
-        .b_in     (b_mul[i]),
+        .a_mul     (a_mul[i]),
+        .b_mul     (b_mul[i]),
         .results  ()
       );
     end
