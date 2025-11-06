@@ -31,5 +31,11 @@ gate_verdi:
 # restore_innovus:
 # 	$(MAKE) -C pnr restore TOP=$(TOP) STAGE=$(STAGE)
 
+SRAM_SRC_C1 = handout_new/data/conv1_weight.txt
+SRAM_SRC_I = handout_new/data/sample_input.txt
+SRAM_DST = rtl/cv32e40p/fpga/tb/icache.hex
+
+gen_dcache:
+	python3 genmci/SRAMhex_gen.py $(SRAM_SRC_C1) $(SRAM_SRC_I) $(SRAM_DST)
 # virtuoso:
 # 	$(MAKE) -C layout virtuoso
