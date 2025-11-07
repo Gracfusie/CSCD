@@ -3,7 +3,8 @@ module npu_scheduler #(
   parameter int W_IN = 8,
   parameter int SEL_DEMUX_WIDTH = 6,
   parameter int SEL_MUX_A_WIDTH = 4,
-  parameter int SEL_MUX_B_WIDTH = 5
+  parameter int SEL_MUX_B_WIDTH = 5,
+  parameter int K_SIZE = 3
 ) (
   input  logic                        clk,          // work clock
   input  logic                        rst_n,        // async, high-active
@@ -29,6 +30,12 @@ parameter COMPUTE    = 2'b10;
 parameter WRITE_BACK = 2'b11;
 logic [1:0] current_state, next_state;
 
+logic [SEL_MUX_A_WIDTH - 1:0] image_ptr;
+logic [1:0] block_head; 
+logic [SEL_MUX_A_WIDTH - 1:0] byte_ptr; //真实的memory相对地址
+
+logic new_subimage;
+
 // State transition
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n)
@@ -53,9 +60,23 @@ always_comb begin
   endcase
 end
 
+int i;
 always_ff @(posedge clk or negedge rst_n) begin
   case (current_state)
     LOAD: begin
+      
+    end
+    COMPUTE: begin
+      // a
+      for (i = 0; i < N; i = i + 1) begin
+        image_ptr <= (image_ptr < 8) ? image_ptr + 1 : 0;
+        if (new_subimage) begin
+          block_head <= (block_head < 2) ? block_head + 1 : 0;
+        end
+        byte_ptr <= (image_ptr + block_head*K_SIZE) % 9;
+      end
+    end
+    WRITE_BACK: begin
       
     end
     default: 
@@ -84,7 +105,7 @@ always_comb begin
     COMPUTE: begin
       pe_en         = {N{1'b1}}; // Enable all PEs during compute
       pe_mode_sel   = instr[SEL_MUX_A_WIDTH +: N]; // Mode select from instruction
-      pe_mux_a_sel  = instr[SEL_MUX_A_WIDTH-1:0];
+      pe_mux_a_sel  = byte_ptr;
       pe_mux_b_sel  = instr[SEL_MUX_B_WIDTH-1:0];
     end
     WRITE_BACK: begin
