@@ -105,43 +105,32 @@ logic       relu_en;
 parameter IDLE       = 2'b00;
 parameter COMPUTE    = 2'b10;
 parameter WRITE_BACK = 2'b11;
-logic [1:0] current_state, next_state;
+logic [1:0] state;
 
 logic [SEL_MUX_A_WIDTH-1:0] image_ptr;
 logic [1:0] block_head; 
 
 logic new_subimage;
 
-// State transition
-always_ff @(posedge clk or negedge rst_n) begin
-  if (!rst_n)
-    current_state <= IDLE;
-  else
-    current_state <= next_state;
-end
 
-// Next state logic
-always_comb begin
-  case (current_state)
-    IDLE:       
-      next_state = compute_en ? COMPUTE : IDLE;
-    COMPUTE:    
-      next_state = WRITE_BACK;
-    WRITE_BACK: 
-      next_state = IDLE;
-    default:    
-      next_state = IDLE;
-  endcase
-end
-
-int i;
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n) begin
+    state        <= IDLE;
     image_ptr    <= '0;
     block_head   <= '0;
     new_subimage <= 1'b0;
   end else begin
-    case (current_state)
+    case (state)
+      IDLE: begin
+        if (compute_en) begin
+          state <= COMPUTE;
+        end else begin
+          state <= IDLE;
+          image_ptr <= '0;
+          block_head <= '0;
+          new_subimage <= 1'b0;
+        end
+      end
       COMPUTE: begin
         if (compute_en) begin
           image_ptr <= (image_ptr < (K_SIZE*K_SIZE-1)) ? image_ptr + 1 : 0;
@@ -173,7 +162,7 @@ always_comb begin
   pe_mux_a_sel  = '0;
   pe_mux_b_sel  = '0;
 
-  case (current_state)
+  case (state)
     COMPUTE: begin
       pe_en         = {N{compute_en}}; // Enable all PEs during compute
       pe_reg_reset  = {N{new_subimage}}; // Reset registers for new sub-image
