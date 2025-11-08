@@ -44,12 +44,14 @@ module NPU_top #(
   parameter int SEL_MUX_B_WIDTH = $clog2(MUX_B_DEPTH); // 5
 
   // NPU scheduler
+  wire wen;
   wire [N-1:0] pe_en, pe_mode_sel, pe_reg_reset;
   wire [SEL_DEMUX_WIDTH-1:0] pe_demux_sel;
   wire [SEL_MUX_A_WIDTH-1:0] pe_mux_a_sel;
   wire [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel;
   npu_scheduler #(
     .N               (N),
+    .K_SIZE          (K_SIZE),
     .W_IN            (DATA_WIDTH),
     .SEL_DEMUX_WIDTH (SEL_DEMUX_WIDTH),
     .SEL_MUX_A_WIDTH (SEL_MUX_A_WIDTH),
@@ -58,7 +60,9 @@ module NPU_top #(
     .clk          (clk),
     .rst_n        (rst_n),
     .instr        (wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH]),
+    .addr         (addr_i),
 
+    .wen          (wen),
     .pe_en        (pe_en),
     .pe_mode_sel  (pe_mode_sel),
     .pe_reg_reset (pe_reg_reset),
@@ -79,7 +83,7 @@ module NPU_top #(
   ) u_demux (
     .data_in (wdata_i[K_SIZE*DATA_WIDTH-1:0]),
     .sel     (pe_demux_sel),
-    .en      (|wen_i),
+    .en      (wen),
     .data_out(npu_buffer_wdata)
   );
 
@@ -88,7 +92,7 @@ module NPU_top #(
     .DEPTH      (BUFFER_DEPTH)
   ) u_decoder (
     .addr (pe_demux_sel),
-    .en   (|wen_i),
+    .en   (wen),
     .y    (npu_buffer_wen)
   );
 

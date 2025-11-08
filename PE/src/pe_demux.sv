@@ -6,8 +6,8 @@
 
 
 module pe_demux #(
-    parameter DATA_WIDTH = 8,
-    parameter DATA_DEPTH = 33,
+    parameter DATA_WIDTH = 24,
+    parameter DATA_DEPTH = 63,
     parameter SEL_WIDTH  = $clog2(DATA_DEPTH)
 ) (
     input  logic [DATA_WIDTH-1:0] data_in,

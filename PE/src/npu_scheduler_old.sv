@@ -12,7 +12,7 @@ module npu_scheduler #(
   input  logic             [W_IN-1:0] instr,        // input1 (treated as unsigned)
   input  logic           [ADDR_W-1:0] addr,
 
-  output logic                        wen,    // buffer write enable
+  output logic                        buffer_wen,    // buffer write enable
   output logic                [N-1:0] pe_en,         // enable signal
   output logic                [N-1:0] pe_mode_sel,   // mode select Relu, normal
   output logic                [N-1:0] pe_reg_reset,  // reg reset
@@ -22,16 +22,27 @@ module npu_scheduler #(
 );
 
 // Decode instructions to control signals
-
-logic       start_load;
-
-// LOAD control signals
-
 parameter LOAD_IDLE = 0;
-parameter LOAD_A    = 1;
-parameter LOAD_B    = 2;
-parameter LOAD_C    = 3;
+parameter LOAD_A = 1;
+parameter LOAD_B = 2;
+parameter LOAD_C = 3;
+
+logic       start;
 logic [1:0] load_mode;
+logic       compute_en;
+logic       broadcast_en;
+logic       relu_en;
+
+
+// Define FSM states
+parameter IDLE       = 2'b00;
+parameter LOAD       = 2'b01;
+parameter COMPUTE    = 2'b10;
+parameter WRITE_BACK = 2'b11;
+logic [1:0] current_state, next_state;
+
+logic [SEL_MUX_A_WIDTH-1:0] image_ptr;
+logic [1:0] block_head; 
 
 parameter BUFFER_A_DEPTH = N*K_SIZE;                          // 30
 parameter BUFFER_B_DEPTH = N*K_SIZE;                          // 30
@@ -45,70 +56,6 @@ parameter BUFFER_C_WIDTH = $clog2(BUFFER_C_DEPTH);
 logic [BUFFER_A_WIDTH-1:0] buffer_a_ptr;
 logic [BUFFER_B_WIDTH-1:0] buffer_b_ptr;
 logic [BUFFER_C_WIDTH-1:0] buffer_c_ptr;
-
-always_ff @(posedge clk or negedge rst_n) begin
-  if (!rst_n) begin
-    buffer_a_ptr <= '0;
-    buffer_b_ptr <= '0;
-    buffer_c_ptr <= '0;
-  end else begin
-    case (load_mode)
-      LOAD_A: begin
-        buffer_a_ptr <= (buffer_a_ptr < BUFFER_A_DEPTH - 1) ? buffer_a_ptr + 1 : 0;
-      end
-      LOAD_B: begin
-        buffer_b_ptr <= (buffer_b_ptr < BUFFER_B_DEPTH - 1) ? buffer_b_ptr + 1 : 0;
-      end
-      LOAD_C: begin
-        buffer_c_ptr <= (buffer_c_ptr < BUFFER_C_DEPTH - 1) ? buffer_c_ptr + 1 : 0;
-      end
-      default: begin
-        buffer_a_ptr <= buffer_a_ptr;
-        buffer_b_ptr <= buffer_b_ptr;
-        buffer_c_ptr <= buffer_c_ptr;
-      end
-    endcase
-  end
-end
-
-// Output logic based on state
-always_comb begin
-  case(load_mode)
-    LOAD_A: begin
-      wen = 1'b1;
-      pe_demux_sel = BUFFER_A_START + buffer_a_ptr;
-    end
-    LOAD_B: begin
-      wen = 1'b1;
-      pe_demux_sel = BUFFER_B_START + buffer_b_ptr;
-    end
-    LOAD_C: begin
-      wen = 1'b1;
-      pe_demux_sel = BUFFER_C_START + buffer_c_ptr;
-    end
-    default: begin
-      wen = 1'b0;
-      pe_demux_sel = '0;
-    end
-  endcase
-end
-
-// COMPUTE control signals
-
-// Decode instructions to control signals
-
-logic       compute_en;
-logic       broadcast_en;
-logic       relu_en;
-
-// Define FSM states
-parameter IDLE       = 2'b00;
-parameter COMPUTE    = 2'b10;
-parameter WRITE_BACK = 2'b11;
-logic [1:0] current_state, next_state;
-
-logic [SEL_MUX_A_WIDTH-1:0] image_ptr;
-logic [1:0] block_head; 
 
 logic new_subimage;
 
@@ -124,7 +71,9 @@ end
 always_comb begin
   case (current_state)
     IDLE:       
-      next_state = compute_en ? COMPUTE : IDLE;
+      next_state = start ? LOAD : IDLE;
+    LOAD:       
+      next_state = COMPUTE;
     COMPUTE:    
       next_state = WRITE_BACK;
     WRITE_BACK: 
@@ -140,8 +89,29 @@ always_ff @(posedge clk or negedge rst_n) begin
     image_ptr    <= '0;
     block_head   <= '0;
     new_subimage <= 1'b0;
+    buffer_a_ptr <= '0;
+    buffer_b_ptr <= '0;
+    buffer_c_ptr <= '0;
   end else begin
     case (current_state)
+      LOAD: begin
+        case (load_mode)
+          LOAD_A: begin
+            buffer_a_ptr <= (buffer_a_ptr < BUFFER_A_DEPTH - 1) ? buffer_a_ptr + 1 : 0;
+          end
+          LOAD_B: begin
+            buffer_b_ptr <= (buffer_b_ptr < BUFFER_B_DEPTH - 1) ? buffer_b_ptr + 1 : 0;
+          end
+          LOAD_C: begin
+            buffer_c_ptr <= (buffer_c_ptr < BUFFER_C_DEPTH - 1) ? buffer_c_ptr + 1 : 0;
+          end
+          default: begin
+            buffer_a_ptr <= buffer_a_ptr;
+            buffer_b_ptr <= buffer_b_ptr;
+            buffer_c_ptr <= buffer_c_ptr;
+          end
+        endcase
+      end
       COMPUTE: begin
         if (compute_en) begin
           image_ptr <= (image_ptr < (K_SIZE*K_SIZE-1)) ? image_ptr + 1 : 0;
@@ -156,12 +126,12 @@ always_ff @(posedge clk or negedge rst_n) begin
       WRITE_BACK: begin
         
       end
-      default: begin
-        
-      end
+      default: 
     endcase
   end
 end
+
+
 
 
 // Output logic based on state
@@ -174,6 +144,28 @@ always_comb begin
   pe_mux_b_sel  = '0;
 
   case (current_state)
+    LOAD: begin
+      pe_en         = {N{1'b0}}; // Enable all PEs during load
+      pe_reg_reset  = {N{1'b0}}; // Reset registers during load
+      case(load_mode)
+        LOAD_A: begin
+          wen = 1'b1;
+          pe_demux_sel = BUFFER_A_START + buffer_a_ptr;
+        end
+        LOAD_B: begin
+          wen = 1'b1;
+          pe_demux_sel = BUFFER_B_START + buffer_b_ptr;
+        end
+        LOAD_C: begin
+          wen = 1'b1;
+          pe_demux_sel = BUFFER_C_START + buffer_c_ptr;
+        end
+        default: begin
+          wen = 1'b0;
+          pe_demux_sel = '0;
+        end
+      endcase
+    end
     COMPUTE: begin
       pe_en         = {N{compute_en}}; // Enable all PEs during compute
       pe_reg_reset  = {N{new_subimage}}; // Reset registers for new sub-image
