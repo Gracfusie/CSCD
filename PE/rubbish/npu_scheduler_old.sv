@@ -18,8 +18,7 @@ module npu_scheduler #(
   output logic                [N-1:0] pe_reg_reset,  // reg reset
   output logic  [SEL_DEMUX_WIDTH-1:0] pe_demux_sel,  // output instruction
   output logic  [SEL_MUX_A_WIDTH-1:0] pe_mux_a_sel,  // MUX A select
-  output logic  [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel,   // MUX B select
-  output logic                  [1:0] write_back_mode   // write back mode
+  output logic  [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel   // MUX B select
 );
 
 // Decode instructions to control signals
@@ -34,9 +33,9 @@ parameter LOAD_A    = 1;
 parameter LOAD_B    = 2;
 parameter LOAD_C    = 3;
 logic [1:0] load_mode;
-logic reuse;
 assign load_mode = instr[1:0];
-assign reuse = instr[6];
+
+logic [SEL_MUX_A_WIDTH-1:0] data_counter;
 
 parameter BUFFER_A_DEPTH = N*K_SIZE;                          // 30
 parameter BUFFER_B_DEPTH = N*K_SIZE;                          // 30
@@ -102,84 +101,90 @@ end
 
 // Decode instructions to control signals
 
-logic [SEL_MUX_A_WIDTH-1:0] data_counter;
-logic                       compute_en;
-logic                       broadcast_en;
-logic                       relu_en;
+logic       compute_en;
+logic       broadcast_en;
+logic       relu_en;
 
 assign compute_en = data_counter > 0;
 assign broadcast_en = instr[2];
 assign relu_en = instr[3];
 
 // Define FSM states
+parameter IDLE       = 2'b00;
+parameter COMPUTE    = 2'b10;
+parameter WRITE_BACK = 2'b11;
+logic [1:0] state;
 
 logic [SEL_MUX_A_WIDTH-1:0] image_ptr;
 logic [1:0] block_head; 
+
 logic new_subimage;
+
 
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n) begin
-    data_counter <= '0;
+    state        <= IDLE;
     image_ptr    <= '0;
     block_head   <= '0;
     new_subimage <= 1'b0;
   end else begin
-    if (compute_en) begin
-      if (load_mode == LOAD_C) begin
-        if (reuse) begin
-          data_counter <= data_counter + K_SIZE*K_SIZE - 1;
+    case (state)
+      IDLE: begin
+        if (compute_en) begin
+          state <= COMPUTE;
         end else begin
-          data_counter <= data_counter + K_SIZE - 1;
-        end
-      end else begin
-        data_counter <= data_counter - 1;
-      end
-      image_ptr <= (image_ptr < (K_SIZE*K_SIZE-1)) ? image_ptr + 1 : 0;
-      if (image_ptr == (K_SIZE*K_SIZE-1)) begin
-        new_subimage <= 1'b1;
-        block_head <= (block_head < (K_SIZE-1)) ? block_head + 1 : 0;
-      end else begin
-        new_subimage <= 1'b0;
-      end
-    end else begin
-      if (new_subimage == 1'b1) begin
-        new_subimage <= 1'b0;
-      end
-      if (load_mode == LOAD_C) begin
-        if (reuse) begin
-          data_counter <= K_SIZE*K_SIZE;
-        end else begin
-          data_counter <= K_SIZE;
+          state <= IDLE;
+          image_ptr <= '0;
+          block_head <= '0;
+          new_subimage <= 1'b0;
         end
       end
-    end
+      COMPUTE: begin
+        if (compute_en) begin
+          image_ptr <= (image_ptr < (K_SIZE*K_SIZE-1)) ? image_ptr + 1 : 0;
+          if (image_ptr == (K_SIZE*K_SIZE-1)) begin
+            new_subimage <= 1'b1;
+            block_head <= (block_head < (K_SIZE-1)) ? block_head + 1 : 0;
+          end else begin
+            new_subimage <= 1'b0;
+          end
+        end
+      end
+      WRITE_BACK: begin
+        
+      end
+      default: begin
+        
+      end
+    endcase
   end
 end
+
 
 // Output logic based on state
 always_comb begin
-  pe_en         = {N{compute_en}};
-  pe_mode_sel   = {N{relu_en}};
-  pe_reg_reset  = {N{new_subimage}};
-  pe_mux_a_sel  = image_ptr;
-  pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (broadcast_en ? K_SIZE*K_SIZE : 0);
-end
+  // Default values
+  pe_en         = '0;
+  pe_mode_sel   = '0;
+  pe_reg_reset  = '0;
+  pe_mux_a_sel  = '0;
+  pe_mux_b_sel  = '0;
 
-// Write Back control signals
-
-parameter WRITE_BACK_0 = 0;
-parameter WRITE_BACK_1 = 1;
-parameter WRITE_BACK_2 = 2;
-parameter WRITE_BACK_IDLE = 3;
-
-always_ff @(posedge clk or negedge rst_n) begin
-  if (!rst_n) begin
-    write_back_mode <= WRITE_BACK_IDLE;
-  end else begin
-    if (instr[5:4] != WRITE_BACK_IDLE) begin
-      write_back_mode <= instr[5:4];
+  case (state)
+    COMPUTE: begin
+      pe_en         = {N{compute_en}}; // Enable all PEs during compute
+      pe_reg_reset  = {N{new_subimage}}; // Reset registers for new sub-image
+      pe_mode_sel   = {N{relu_en}}; // Mode select from instruction
+      pe_mux_a_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE);
+      pe_mux_b_sel  = pe_mux_a_sel + (broadcast_en ? K_SIZE*K_SIZE : 0);
     end
-  end
+    WRITE_BACK: begin
+      pe_en         = {N{1'b0}}; // Disable all PEs during write back
+    end
+    default: begin
+      // Do nothing in IDLE state
+    end
+  endcase
 end
 
 endmodule

@@ -35,7 +35,7 @@ module NPU_top #(
       end
     end
   end
-  // assign npu_buffer_flattened = npu_buffer;
+  logic [DATA_WIDTH-1:0] results [0:N-1];
 
   // MUX parameters
   parameter int MUX_A_DEPTH = K_SIZE*K_SIZE;           // 9
@@ -49,6 +49,7 @@ module NPU_top #(
   wire [SEL_DEMUX_WIDTH-1:0] pe_demux_sel;
   wire [SEL_MUX_A_WIDTH-1:0] pe_mux_a_sel;
   wire [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel;
+  wire [1:0] write_back_mode;
   npu_scheduler #(
     .N               (N),
     .K_SIZE          (K_SIZE),
@@ -68,7 +69,8 @@ module NPU_top #(
     .pe_reg_reset (pe_reg_reset),
     .pe_demux_sel (pe_demux_sel),
     .pe_mux_a_sel (pe_mux_a_sel),
-    .pe_mux_b_sel (pe_mux_b_sel)
+    .pe_mux_b_sel (pe_mux_b_sel),
+    .write_back_mode(write_back_mode)
   );
 
   // Write demux
@@ -101,7 +103,6 @@ module NPU_top #(
       for (int i = 0; i < BUFFER_DEPTH; i++) begin
         npu_buffer[i] <= '0;
       end
-      rdata_o <= '0;
     end else begin
       // Write operation
       for (int i = 0; i < BUFFER_DEPTH; i++) begin
@@ -132,9 +133,9 @@ module NPU_top #(
 
   generate
     for (genvar i = 0; i < N; i++) begin : PE_MUX_GEN_INPUT
-      wire [DATA_WIDTH-1:0] data_in [0:MUX_B_DEPTH-1];
-      assign data_in[0:MUX_A_DEPTH-1] = npu_buffer_flattened[(N+i)*MUX_A_DEPTH +: MUX_A_DEPTH];
-      assign data_in[MUX_A_DEPTH:MUX_B_DEPTH-1] = npu_buffer_flattened[2*N*MUX_A_DEPTH +: MUX_A_DEPTH];
+      wire [DATA_WIDTH-1:0] data_in_input [0:MUX_B_DEPTH-1];
+      assign data_in_input[0:MUX_A_DEPTH-1] = npu_buffer_flattened[(N+i)*MUX_A_DEPTH +: MUX_A_DEPTH];
+      assign data_in_input[MUX_A_DEPTH:MUX_B_DEPTH-1] = npu_buffer_flattened[2*N*MUX_A_DEPTH +: MUX_A_DEPTH];
 
       pe_mux #(
         .WIDTH    (DATA_WIDTH),
@@ -142,7 +143,7 @@ module NPU_top #(
         .SEL_WIDTH(SEL_MUX_B_WIDTH)
       ) u_pe_mux (
         // .data_in ({npu_buffer_flattened[(N+i)*MUX_A_DEPTH +: MUX_A_DEPTH], npu_buffer_flattened[2*N*MUX_A_DEPTH +: MUX_A_DEPTH]}),
-        .data_in (data_in),
+        .data_in (data_in_input),
         .sel     (pe_mux_b_sel),
         .data_out(b_mul[i])
       );
@@ -162,13 +163,28 @@ module NPU_top #(
         .pe_en    (pe_en[i]),
         .mode_sel (pe_mode_sel[i]),
         .reg_reset(pe_reg_reset[i]),
-        .a_mul     (a_mul[i]),
-        .b_mul     (b_mul[i]),
-        .results  ()
+        .a_mul    (a_mul[i]),
+        .b_mul    (b_mul[i]),
+        .results  (results[i])
       );
     end
   endgenerate
 
+  // Output mux
+  wire [AXI_WIDTH-1:0] data_in_output [0:3];
+  assign data_in_output[0] = {results[0], results[1], results[2], results[3]};
+  assign data_in_output[1] = {results[4], results[5], results[6], results[7]};
+  assign data_in_output[2] = {results[8], results[9], 16'b0};
+  assign data_in_output[3] = {AXI_WIDTH{1'b0}};
 
+  pe_mux #(
+    .WIDTH     (AXI_WIDTH),
+    .DEPTH     (4),
+    .SEL_WIDTH (2)
+  ) u_output_mux (
+    .data_in (data_in_output),
+    .sel (write_back_mode),
+    .data_out(rdata_o)
+  );
 
 endmodule
