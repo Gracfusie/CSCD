@@ -21,8 +21,6 @@ ifndef SRC_DIR
 export SRC_DIR = $(PWD)/../rtl
 endif
 
-SRC_LIST = -file ${SRC_DIR}/filelist.f		### Filelist of Source RTL, RTL must be absolute dir!!!
-
 VCS_OPTIONS = -full64						### run under 64-bit mode
 VCS_OPTIONS += +v2k							### enable new Verilog constructs in the 1364-2001 standard
 VCS_OPTIONS += -sverilog					### enable systemberilog syntax

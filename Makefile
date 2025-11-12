@@ -6,6 +6,16 @@
 #####################################################################################
 
 export SRC_DIR = $(PWD)/rtl
+export SRC_LIST
+
+ifdef NPU_TB
+SRC_LIST = -file ${SRC_DIR}/filelist_load.f
+TOP = NPU_top_load_tb
+else
+SRC_LIST = -file ${SRC_DIR}/filelist.f
+TOP = cv32e40p_xilinx_tb
+endif
+
 
 vcs:
 	$(MAKE) -C sim vcs TOP=$(TOP)
