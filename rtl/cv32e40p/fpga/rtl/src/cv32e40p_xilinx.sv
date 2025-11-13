@@ -456,7 +456,7 @@ module cv32e40p_xilinx (
     sram_ff #(
         .AddrWidth(11), // 2048 Words
         .DataWidth(32),
-        .INIT_FILE("../../rtl/cv32e40p/fpga/tb/icache.hex")
+        .INIT_FILE("../../rtl/cv32e40p/fpga/tb/srami_mount_test.hex")
     ) i_srami (
         .clk_i  (clk_i),
         .req_i  (srami_req),
