@@ -102,7 +102,10 @@ end
 
 // Decode instructions to control signals
 
+parameter LINE_COUNT = 14;
+
 logic [SEL_MUX_A_WIDTH-1:0] data_counter;
+logic                 [3:0] subimage_counter;
 logic                       compute_en;
 logic                       broadcast_en;
 logic                       relu_en;
@@ -111,7 +114,6 @@ assign compute_en = data_counter > 0;
 assign broadcast_en = instr[2];
 assign relu_en = instr[3];
 
-// Define FSM states
 
 logic [SEL_MUX_A_WIDTH-1:0] image_ptr;
 logic [1:0] block_head; 
@@ -123,6 +125,7 @@ always_ff @(posedge clk or negedge rst_n) begin
     image_ptr    <= '0;
     block_head   <= '0;
     new_subimage <= 1'b0;
+    subimage_counter <= '0;
   end else begin
     if (compute_en) begin
       if (load_mode == LOAD_C) begin
@@ -143,6 +146,10 @@ always_ff @(posedge clk or negedge rst_n) begin
       end
     end else begin
       if (new_subimage == 1'b1) begin
+        subimage_counter <= (subimage_counter < LINE_COUNT - 1) ? subimage_counter + 1 : 0;
+        if (subimage_counter == LINE_COUNT - 1) begin
+          block_head <= (block_head > 0) ? block_head - 1 : K_SIZE - 1;
+        end
         new_subimage <= 1'b0;
       end
       if (load_mode == LOAD_C) begin
