@@ -19,7 +19,7 @@ module NPU_top_load_tb;
   logic [AXI_WIDTH-1:0] wdata_i;
   logic [AXI_WIDTH-1:0] rdata_o;
 
-  assign wen_i = {4{wdata_i[AXI_WIDTH-1]}}; // replicate for all bytes
+  // assign wen_i = {4{wdata_i[AXI_WIDTH-1]}}; // replicate for all bytes
 
   // Testbench signals
   // logic [DATA_WIDTH-1:0] instr;
@@ -73,7 +73,7 @@ module NPU_top_load_tb;
     // Initialize
     rst_n = 0;
     req_i = 1;
-    // wen_i = 4'b0000;
+    wen_i = 4'b0000;
     addr_i = 0;
     // // wdata_i = 0;
     // // instr = 0;
@@ -104,6 +104,10 @@ module NPU_top_load_tb;
       if (rdata > 0) begin
         @(negedge clk);
         $sscanf(line, "%b", wdata_i);
+        wen_i = 4'b1111;
+        @(negedge clk);
+        wen_i = 4'b0000;
+        repeat (6) @(negedge clk);
       end
     end
     $fclose(fd);
@@ -123,7 +127,7 @@ module NPU_top_load_tb;
     fd = $fopen(filename, "w");
     while (1) begin
       @(posedge clk);
-      if (wdata_i[29:28] != 2'b11) begin
+      if ((wdata_i[29:28] != 2'b00) && wen_i[3]) begin
         @(negedge clk);
         rdata_str = $sformatf("%0b", dut.rdata_o[AXI_WIDTH-1:0]);
         while (rdata_str.len() < AXI_WIDTH)

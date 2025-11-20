@@ -50,6 +50,10 @@ module NPU_top #(
   wire [SEL_MUX_A_WIDTH-1:0] pe_mux_a_sel;
   wire [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel;
   wire [1:0] write_back_mode;
+  wire [DATA_WIDTH-1:0] instr;
+
+  assign instr = wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH] & {DATA_WIDTH{wen_i[3]}}; // valid only if write enabled
+
   npu_scheduler #(
     .N               (N),
     .K_SIZE          (K_SIZE),
@@ -60,7 +64,8 @@ module NPU_top #(
   ) u_npu_scheduler (
     .clk          (clk),
     .rst_n        (rst_n),
-    .instr        (wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH]),
+    .wen_i        (wen_i),
+    .instr        (instr),
     .addr         (addr_i),
 
     .wen          (wen),
@@ -172,10 +177,10 @@ module NPU_top #(
 
   // Output mux
   wire [AXI_WIDTH-1:0] data_in_output [0:3];
-  assign data_in_output[0] = {results[0], results[1], results[2], results[3]};
-  assign data_in_output[1] = {results[4], results[5], results[6], results[7]};
-  assign data_in_output[2] = {results[8], results[9], 16'b0};
-  assign data_in_output[3] = {AXI_WIDTH{1'b0}};
+  assign data_in_output[0] = {AXI_WIDTH{1'b0}};
+  assign data_in_output[1] = {results[0], results[1], results[2], results[3]};
+  assign data_in_output[2] = {results[4], results[5], results[6], results[7]};
+  assign data_in_output[3] = {results[8], results[9], 16'b0};
 
   pe_mux #(
     .WIDTH     (AXI_WIDTH),

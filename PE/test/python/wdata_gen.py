@@ -34,7 +34,7 @@ def load_A(f):
     wen_i = 1
     addr_i = 0
     reuse = 0
-    write_back_mode = 3
+    write_back_mode = 0
     relu_en = 1
     broadcast_en = 1
     load_mode = 1
@@ -49,7 +49,7 @@ def waiting(f, cycles):
     wen_i = 0
     addr_i = 0
     reuse = 0
-    write_back_mode = 3
+    write_back_mode = 0
     relu_en = 1
     broadcast_en = 1
     load_mode = 0
@@ -68,7 +68,7 @@ def write_back(f):
     broadcast_en = 1
     load_mode = 0
     for i in range(3):
-        write_back_mode = i
+        write_back_mode = i + 1
         write_instr(f)
 
 def load_C(f):
@@ -81,13 +81,13 @@ def load_C(f):
         for row in range(1, 15):
             wen_i = 1
             addr_i = 0
-            write_back_mode = 3
+            write_back_mode = 0
             relu_en = 1
             broadcast_en = 1
             load_mode = 3
             if row == 1:
                 reuse = 0
-                cycles = 10
+                cycles = 1
                 for i in [row-1, row, row+1]:
                     load_data_1 = format(sample_input[i, col-1], '08b')
                     load_data_2 = format(sample_input[i, col], '08b')
@@ -95,7 +95,7 @@ def load_C(f):
                     write_instr(f)
             else:
                 reuse = 1
-                cycles = 11
+                cycles = 1
                 load_data_1 = format(sample_input[row+1, col-1], '08b')
                 load_data_2 = format(sample_input[row+1, col], '08b')
                 load_data_3 = format(sample_input[row+1, col+1], '08b')
@@ -110,7 +110,7 @@ req_i = 1
 wen_i = 0             # 4 bits
 addr_i = 0            # 3 bits
 reuse = 0
-write_back_mode = 3   # 2 bits
+write_back_mode = 0   # 2 bits
 relu_en = 0
 broadcast_en = 0
 load_mode = 0         # 2 bits

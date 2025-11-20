@@ -9,6 +9,7 @@ module npu_scheduler #(
 ) (
   input  logic                        clk,          // work clock
   input  logic                        rst_n,        // async, high-active
+  input  logic                  [3:0] wen_i,        // write enable
   input  logic             [W_IN-1:0] instr,        // input1 (treated as unsigned)
   input  logic           [ADDR_W-1:0] addr,
 
@@ -108,11 +109,25 @@ logic [SEL_MUX_A_WIDTH-1:0] data_counter;
 logic                 [3:0] subimage_counter;
 logic                       compute_en;
 logic                       broadcast_en;
+logic                       broadcast_en_reg;
 logic                       relu_en;
+logic                       relu_en_reg;
 
 assign compute_en = data_counter > 0;
 assign broadcast_en = instr[2];
 assign relu_en = instr[3];
+
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n) begin
+    broadcast_en_reg <= 1'b0;
+    relu_en_reg <= 1'b0;
+  end else begin
+    if (wen_i[3]) begin
+      broadcast_en_reg <= broadcast_en;
+      relu_en_reg <= relu_en;
+    end
+  end
+end
 
 
 logic [SEL_MUX_A_WIDTH-1:0] image_ptr;
@@ -166,18 +181,18 @@ end
 // Output logic based on state
 always_comb begin
   pe_en         = {N{compute_en}};
-  pe_mode_sel   = {N{relu_en}};
+  pe_mode_sel   = {N{relu_en_reg}};
   pe_reg_reset  = {N{new_subimage}};
   pe_mux_a_sel  = image_ptr;
-  pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (broadcast_en ? K_SIZE*K_SIZE : 0);
+  pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (broadcast_en_reg ? K_SIZE*K_SIZE : 0);
 end
 
 // Write Back control signals
 
-parameter WRITE_BACK_0 = 0;
+parameter WRITE_BACK_IDLE = 0;
 parameter WRITE_BACK_1 = 1;
 parameter WRITE_BACK_2 = 2;
-parameter WRITE_BACK_IDLE = 3;
+parameter WRITE_BACK_3 = 3;
 
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n) begin
