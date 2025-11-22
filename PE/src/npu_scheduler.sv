@@ -25,8 +25,36 @@ module npu_scheduler #(
 
 // Decode instructions to control signals
 
-// logic       start_load;
-// assign start_load = instr[0];
+logic        layer_select_en;
+logic        reuse;
+logic  [1:0] load_mode;
+
+always_comb begin
+  layer_select_en = instr[7];
+  reuse           = (~instr[7]) & instr[6];
+  load_mode       = {2{~instr[7]}} & instr[1:0];
+end
+
+logic        relu_en;
+logic        broadcast_en;
+logic  [3:0] line_count;
+
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n) begin
+    relu_en <= 1'b0;
+    broadcast_en <= 1'b0;
+    line_count <= 4'b0;
+    write_back_mode <= 2'b00;
+  end else if (wen_i[3]) begin
+    if (layer_select_en) begin
+      relu_en      <= instr[5];
+      broadcast_en <= instr[4];
+      line_count   <= instr[3:0];
+    end else if (instr[3:2] != 2'b00) begin
+      write_back_mode <= instr[3:2];
+    end
+  end
+end
 
 // LOAD control signals
 
@@ -34,11 +62,6 @@ parameter LOAD_IDLE = 0;
 parameter LOAD_A    = 1;
 parameter LOAD_B    = 2;
 parameter LOAD_C    = 3;
-logic [1:0] load_mode;
-logic reuse;
-assign load_mode = instr[1:0];
-assign reuse = instr[6];
-
 parameter BUFFER_A_DEPTH = N*K_SIZE;                          // 30
 parameter BUFFER_B_DEPTH = N*K_SIZE;                          // 30
 parameter BUFFER_C_DEPTH = K_SIZE;                            // 3
@@ -51,19 +74,26 @@ parameter BUFFER_C_WIDTH = $clog2(BUFFER_C_DEPTH);
 logic [BUFFER_A_WIDTH-1:0] buffer_a_ptr;
 logic [BUFFER_B_WIDTH-1:0] buffer_b_ptr;
 logic [BUFFER_C_WIDTH-1:0] buffer_c_ptr;
+logic [1:0] load_b_start;
 
 always_ff @(posedge clk or negedge rst_n) begin
-  if (!rst_n) begin
+  if ((!rst_n) | layer_select_en) begin
     buffer_a_ptr <= '0;
     buffer_b_ptr <= '0;
     buffer_c_ptr <= '0;
+    load_b_start <= 2'b01;
   end else begin
     case (load_mode)
       LOAD_A: begin
         buffer_a_ptr <= (buffer_a_ptr < BUFFER_A_DEPTH - 1) ? buffer_a_ptr + 1 : 0;
       end
       LOAD_B: begin
-        buffer_b_ptr <= (buffer_b_ptr < BUFFER_B_DEPTH - 1) ? buffer_b_ptr + 1 : 0;
+        if (buffer_b_ptr < BUFFER_B_DEPTH - K_SIZE) begin
+          buffer_b_ptr <= buffer_b_ptr + K_SIZE;
+        end else begin
+          buffer_b_ptr <= load_b_start;
+          load_b_start <= (load_b_start < K_SIZE - 1) ? load_b_start + 1 : 0;
+        end
       end
       LOAD_C: begin
         buffer_c_ptr <= (buffer_c_ptr < BUFFER_C_DEPTH - 1) ? buffer_c_ptr + 1 : 0;
@@ -101,33 +131,11 @@ end
 
 // COMPUTE control signals
 
-// Decode instructions to control signals
-
-parameter LINE_COUNT = 14;
-
 logic [SEL_MUX_A_WIDTH-1:0] data_counter;
 logic                 [3:0] subimage_counter;
 logic                       compute_en;
-logic                       broadcast_en;
-logic                       broadcast_en_reg;
-logic                       relu_en;
-logic                       relu_en_reg;
 
 assign compute_en = data_counter > 0;
-assign broadcast_en = instr[2];
-assign relu_en = instr[3];
-
-always_ff @(posedge clk or negedge rst_n) begin
-  if (!rst_n) begin
-    broadcast_en_reg <= 1'b0;
-    relu_en_reg <= 1'b0;
-  end else begin
-    if (wen_i[3]) begin
-      broadcast_en_reg <= broadcast_en;
-      relu_en_reg <= relu_en;
-    end
-  end
-end
 
 
 logic [SEL_MUX_A_WIDTH-1:0] image_ptr;
@@ -135,15 +143,15 @@ logic [1:0] block_head;
 logic new_subimage;
 
 always_ff @(posedge clk or negedge rst_n) begin
-  if (!rst_n) begin
-    data_counter <= '0;
-    image_ptr    <= '0;
-    block_head   <= '0;
-    new_subimage <= 1'b0;
+  if ((!rst_n) | layer_select_en) begin
+    data_counter     <= '0;
+    image_ptr        <= '0;
+    block_head       <= '0;
+    new_subimage     <= 1'b0;
     subimage_counter <= '0;
   end else begin
     if (compute_en) begin
-      if (load_mode == LOAD_C) begin
+      if (((load_mode == LOAD_B) && (buffer_b_ptr >= BUFFER_B_DEPTH - K_SIZE)) || (load_mode == LOAD_C)) begin
         if (reuse) begin
           data_counter <= data_counter + K_SIZE*K_SIZE - 1;
         end else begin
@@ -161,13 +169,16 @@ always_ff @(posedge clk or negedge rst_n) begin
       end
     end else begin
       if (new_subimage == 1'b1) begin
-        subimage_counter <= (subimage_counter < LINE_COUNT - 1) ? subimage_counter + 1 : 0;
-        if (subimage_counter == LINE_COUNT - 1) begin
+        subimage_counter <= (subimage_counter < line_count - 1) ? subimage_counter + 1 : 0;
+        if (subimage_counter == line_count - 1) begin
           block_head <= (block_head > 0) ? block_head - 1 : K_SIZE - 1;
         end
         new_subimage <= 1'b0;
+      end else if (load_mode == LOAD_A) begin
+        subimage_counter <= '0;
+        block_head <= '0;
       end
-      if (load_mode == LOAD_C) begin
+      if (((load_mode == LOAD_B) && (buffer_b_ptr >= BUFFER_B_DEPTH - K_SIZE)) || (load_mode == LOAD_C)) begin
         if (reuse) begin
           data_counter <= K_SIZE*K_SIZE;
         end else begin
@@ -181,27 +192,10 @@ end
 // Output logic based on state
 always_comb begin
   pe_en         = {N{compute_en}};
-  pe_mode_sel   = {N{relu_en_reg}};
+  pe_mode_sel   = {N{relu_en}};
   pe_reg_reset  = {N{new_subimage}};
   pe_mux_a_sel  = image_ptr;
-  pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (broadcast_en_reg ? K_SIZE*K_SIZE : 0);
-end
-
-// Write Back control signals
-
-parameter WRITE_BACK_IDLE = 0;
-parameter WRITE_BACK_1 = 1;
-parameter WRITE_BACK_2 = 2;
-parameter WRITE_BACK_3 = 3;
-
-always_ff @(posedge clk or negedge rst_n) begin
-  if (!rst_n) begin
-    write_back_mode <= WRITE_BACK_IDLE;
-  end else begin
-    if (instr[5:4] != WRITE_BACK_IDLE) begin
-      write_back_mode <= instr[5:4];
-    end
-  end
+  pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (broadcast_en ? K_SIZE*K_SIZE : 0);
 end
 
 endmodule

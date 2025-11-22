@@ -127,7 +127,7 @@ module NPU_top_load_tb;
     fd = $fopen(filename, "w");
     while (1) begin
       @(posedge clk);
-      if ((wdata_i[29:28] != 2'b00) && wen_i[3]) begin
+      if ((wdata_i[31] == 1'b0) && (wdata_i[27:26] != 2'b00) && wen_i[3]) begin
         @(negedge clk);
         rdata_str = $sformatf("%0b", dut.rdata_o[AXI_WIDTH-1:0]);
         while (rdata_str.len() < AXI_WIDTH)
