@@ -11,7 +11,7 @@ module pe_core #(
   input  logic signed  [W_IN-1:0] a_mul,        // input1 (treated as unsigned)
   input  logic         [W_IN-1:0] b_mul,        // input2 (signed)
 
-  output logic signed  [W_IN-1:0] results       // final output
+  output logic signed  [W_ACC-1:0] results       // final output
 );
 
   // --------------------------
@@ -132,7 +132,7 @@ module pe_core #(
 
       // ---- S3: output register (after ReLU/MUX) ----
       if (pe_en_d3) begin
-        results <= mux_out_s3[W_IN-1:0];
+        results <= mux_out_s3[W_ACC-1:0];
       end
     end
   end

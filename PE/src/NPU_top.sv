@@ -35,7 +35,6 @@ module NPU_top #(
       end
     end
   end
-  logic [DATA_WIDTH-1:0] results [0:N-1];
 
   // MUX parameters
   parameter int MUX_A_DEPTH = K_SIZE*K_SIZE;           // 9
@@ -156,6 +155,14 @@ module NPU_top #(
   endgenerate
 
   // PE cores
+  logic signed [3*DATA_WIDTH-1:0] results [0:N-1];
+  logic          [DATA_WIDTH-1:0] results_truncated [0:N-1];
+  always_comb begin
+    for (int i = 0; i < N; i++) begin
+      results_truncated[i] = results[i][DATA_WIDTH-1:0];
+    end
+  end
+
   generate
     for (genvar i = 0; i < N; i++) begin: PE_CORE_GEN
       pe_core #(
@@ -175,12 +182,25 @@ module NPU_top #(
     end
   endgenerate
 
+  // adder_tree to sum 10 results
+  wire [DATA_WIDTH-1:0] adder_tree_out;
+
+  adder_tree #(
+    .N              (N),
+    .DATA_IN_WIDTH  (3*DATA_WIDTH),
+    .DATA_OUT_WIDTH (DATA_WIDTH),
+    .ACC_WIDTH      (4*DATA_WIDTH)
+  ) u_adder_tree (
+    .data_in (results),
+    .data_out(adder_tree_out)
+  );
+
   // Output mux
   wire [AXI_WIDTH-1:0] data_in_output [0:3];
   assign data_in_output[0] = {AXI_WIDTH{1'b0}};
-  assign data_in_output[1] = {results[0], results[1], results[2], results[3]};
-  assign data_in_output[2] = {results[4], results[5], results[6], results[7]};
-  assign data_in_output[3] = {results[8], results[9], 16'b0};
+  assign data_in_output[1] = {results_truncated[0], results_truncated[1], results_truncated[2], results_truncated[3]};
+  assign data_in_output[2] = {results_truncated[4], results_truncated[5], results_truncated[6], results_truncated[7]};
+  assign data_in_output[3] = {results_truncated[8], results_truncated[9], adder_tree_out, 8'b0};
 
   pe_mux #(
     .WIDTH     (AXI_WIDTH),

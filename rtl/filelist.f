@@ -13,6 +13,7 @@
 +incdir+../../rtl/cv32e40p/rtl/include/
 +incdir+../../rtl/cv32e40p/fpga/rtl/include/
 
+../../PE/src/adder_tree.sv
 ../../PE/src/pe_relu.sv
 ../../PE/src/pe_mux.sv
 ../../PE/src/pe_binary_decoder.sv
