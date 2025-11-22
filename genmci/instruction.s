@@ -34,5 +34,6 @@ loop1_start:
     j    loop1_start
 loop1_end:
 
-    
+stop_loop:
+    j    stop_loop
 
