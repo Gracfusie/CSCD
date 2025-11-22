@@ -44,7 +44,7 @@ module NPU_top #(
 
   // NPU scheduler
   wire wen;
-  wire [N-1:0] pe_en, pe_mode_sel, pe_reg_reset;
+  wire pe_en, pe_mode_sel, pe_reg_reset;
   wire [SEL_DEMUX_WIDTH-1:0] pe_demux_sel;
   wire [SEL_MUX_A_WIDTH-1:0] pe_mux_a_sel;
   wire [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel;
@@ -172,9 +172,9 @@ module NPU_top #(
       ) u_pe_core (
         .clk      (clk),
         .rst_n    (rst_n),
-        .pe_en    (pe_en[i]),
-        .mode_sel (pe_mode_sel[i]),
-        .reg_reset(pe_reg_reset[i]),
+        .pe_en    (pe_en),
+        .mode_sel (pe_mode_sel),
+        .reg_reset(pe_reg_reset),
         .a_mul    (a_mul[i]),
         .b_mul    (b_mul[i]),
         .results  (results[i])

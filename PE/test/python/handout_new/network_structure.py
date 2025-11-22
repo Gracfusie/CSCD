@@ -63,9 +63,9 @@ def quantized_linear(x, weight, bias):
     out = torch.zeros((N, Out), dtype=torch.uint8)
     for n in range(N):
         for o in range(Out):
-            if Out==10: print(o)
+            # if Out==10: print(o)
             val = mac_24bit(x[n:n+1, :].view(1, 1, 1, In), weight[o:o+1].view(1, 1, 1, In), bias[o])
-            if Out==10: print(val)
+            # if Out==10: print(val)
             out[n, o] = val
     return out
 
@@ -88,10 +88,10 @@ class QuantizedCNN(nn.Module):
         #print("Shape of x:", x.shape)
         #x = quantized_relu8(x)
         x = quantized_conv3d(x, self.q_conv2_w, self.q_conv2_b)  # Use 3D convolution
-        #print("Shape of x:", x.shape)
+        print("Shape of x:", x.shape)
         #x = quantized_relu8(x)
         x = x.view(x.size(0), -1)  # Flatten for fully connected layers
-        #print("Shape of x:", x.shape)
+        print("Shape of x:", x.shape)
         x = quantized_linear(x, self.q_fc1_w, self.q_fc1_b)
         #print("Shape of x:", x.shape)
         #x = quantized_relu8(x)

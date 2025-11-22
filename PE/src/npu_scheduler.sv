@@ -14,9 +14,9 @@ module npu_scheduler #(
   input  logic           [ADDR_W-1:0] addr,
 
   output logic                        wen,    // buffer write enable
-  output logic                [N-1:0] pe_en,         // enable signal
-  output logic                [N-1:0] pe_mode_sel,   // mode select Relu, normal
-  output logic                [N-1:0] pe_reg_reset,  // reg reset
+  output logic                        pe_en,         // enable signal
+  output logic                        pe_mode_sel,   // mode select Relu, normal
+  output logic                        pe_reg_reset,  // reg reset
   output logic  [SEL_DEMUX_WIDTH-1:0] pe_demux_sel,  // output instruction
   output logic  [SEL_MUX_A_WIDTH-1:0] pe_mux_a_sel,  // MUX A select
   output logic  [SEL_MUX_B_WIDTH-1:0] pe_mux_b_sel,   // MUX B select
@@ -35,21 +35,27 @@ always_comb begin
   load_mode       = {2{~instr[7]}} & instr[1:0];
 end
 
+logic        reg_reset_en;
 logic        relu_en;
 logic        broadcast_en;
 logic  [3:0] line_count;
+logic        buffer_a_mode;
 
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n) begin
-    relu_en <= 1'b0;
-    broadcast_en <= 1'b0;
-    line_count <= 4'b0;
+    reg_reset_en    <= 1'b0;
+    relu_en         <= 1'b0;
+    broadcast_en    <= 1'b0;
+    line_count      <= 4'b0;
     write_back_mode <= 2'b00;
+    buffer_a_mode   <= 1'b0;
   end else if (wen_i[3]) begin
     if (layer_select_en) begin
-      relu_en      <= instr[5];
-      broadcast_en <= instr[4];
-      line_count   <= instr[3:0];
+      reg_reset_en  <= instr[6];
+      relu_en       <= instr[5];
+      broadcast_en  <= instr[5];
+      buffer_a_mode <= instr[4];
+      line_count    <= instr[3:0];
     end else if (instr[3:2] != 2'b00) begin
       write_back_mode <= instr[3:2];
     end
@@ -58,10 +64,10 @@ end
 
 // LOAD control signals
 
-parameter LOAD_IDLE = 0;
-parameter LOAD_A    = 1;
-parameter LOAD_B    = 2;
-parameter LOAD_C    = 3;
+parameter LOAD_IDLE      = 0;
+parameter LOAD_A         = 1;
+parameter LOAD_B         = 2;
+parameter LOAD_C         = 3;
 parameter BUFFER_A_DEPTH = N*K_SIZE;                          // 30
 parameter BUFFER_B_DEPTH = N*K_SIZE;                          // 30
 parameter BUFFER_C_DEPTH = K_SIZE;                            // 3
@@ -85,7 +91,11 @@ always_ff @(posedge clk or negedge rst_n) begin
   end else begin
     case (load_mode)
       LOAD_A: begin
-        buffer_a_ptr <= (buffer_a_ptr < BUFFER_A_DEPTH - 1) ? buffer_a_ptr + 1 : 0;
+        if (buffer_a_mode) begin
+          buffer_a_ptr <= (buffer_a_ptr < K_SIZE - 1) ? buffer_a_ptr + 1 : 0;
+        end else begin
+          buffer_a_ptr <= (buffer_a_ptr < BUFFER_A_DEPTH - 1) ? buffer_a_ptr + 1 : 0;
+        end
       end
       LOAD_B: begin
         if (buffer_b_ptr < BUFFER_B_DEPTH - K_SIZE) begin
@@ -191,9 +201,9 @@ end
 
 // Output logic based on state
 always_comb begin
-  pe_en         = {N{compute_en}};
-  pe_mode_sel   = {N{relu_en}};
-  pe_reg_reset  = {N{new_subimage}};
+  pe_en         = compute_en;
+  pe_mode_sel   = relu_en;
+  pe_reg_reset  = (reg_reset_en & new_subimage) | layer_select_en;
   pe_mux_a_sel  = image_ptr;
   pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (broadcast_en ? K_SIZE*K_SIZE : 0);
 end

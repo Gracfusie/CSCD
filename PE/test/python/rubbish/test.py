@@ -145,8 +145,6 @@ q_conv2_w_2 = torch.tensor(conv2_weight_2, dtype=torch.int8)
 
 out_conv2_relu_py = quantized_conv3d(out_conv1_py, q_conv2_w_2, q_conv2_b, stride=1, clip=True)
 
-print(out_conv2_relu_py.shape)
-
 out_conv2_relu_npu = torch.zeros((1, 1, 12, 11), dtype=torch.uint8)
 for row in range(12):
     for col in range(11):
@@ -156,7 +154,11 @@ for row in range(12):
         acc = (acc & 0xFF).to(torch.uint8)
         out_conv2_relu_npu[0, 0, row, col] = acc
 
-compare_outputs(out_conv2_relu_py, out_conv2_relu_npu)
+# compare_outputs(out_conv2_relu_py, out_conv2_relu_npu)
+
+print(out_conv2_relu_py)
+print(out_conv2_relu_py.view(out_conv2_relu_py.size(0), -1))
+
 
 # # Compare the outputs
 # print('layer: conv1')
