@@ -36,26 +36,23 @@ always_comb begin
 end
 
 logic        reg_reset_en;
-logic        relu_en;
-logic        broadcast_en;
+logic        relu_broadcast_en;
 logic  [3:0] line_count;
 logic        buffer_a_mode;
 
 always_ff @(posedge clk or negedge rst_n) begin
   if (!rst_n) begin
-    reg_reset_en    <= 1'b0;
-    relu_en         <= 1'b0;
-    broadcast_en    <= 1'b0;
-    line_count      <= 4'b0;
-    write_back_mode <= 2'b00;
-    buffer_a_mode   <= 1'b0;
+    reg_reset_en      <= 1'b0;
+    relu_broadcast_en <= 1'b0;
+    line_count        <= 4'b0;
+    write_back_mode   <= 2'b00;
+    buffer_a_mode     <= 1'b0;
   end else if (wen_i[3]) begin
     if (layer_select_en) begin
-      reg_reset_en  <= instr[6];
-      relu_en       <= instr[5];
-      broadcast_en  <= instr[5];
-      buffer_a_mode <= instr[4];
-      line_count    <= instr[3:0];
+      reg_reset_en      <= instr[6];
+      relu_broadcast_en <= instr[5];
+      buffer_a_mode     <= instr[4];
+      line_count        <= instr[3:0];
     end else if (instr[3:2] != 2'b00) begin
       write_back_mode <= instr[3:2];
     end
@@ -83,7 +80,12 @@ logic [BUFFER_C_WIDTH-1:0] buffer_c_ptr;
 logic [1:0] load_b_start;
 
 always_ff @(posedge clk or negedge rst_n) begin
-  if ((!rst_n) | layer_select_en) begin
+  if (!rst_n) begin
+    buffer_a_ptr <= '0;
+    buffer_b_ptr <= '0;
+    buffer_c_ptr <= '0;
+    load_b_start <= 2'b01;
+  end else if (layer_select_en) begin
     buffer_a_ptr <= '0;
     buffer_b_ptr <= '0;
     buffer_c_ptr <= '0;
@@ -153,7 +155,13 @@ logic [1:0] block_head;
 logic new_subimage;
 
 always_ff @(posedge clk or negedge rst_n) begin
-  if ((!rst_n) | layer_select_en) begin
+  if (!rst_n) begin
+    data_counter     <= '0;
+    image_ptr        <= '0;
+    block_head       <= '0;
+    new_subimage     <= 1'b0;
+    subimage_counter <= '0;
+  end else if (layer_select_en) begin
     data_counter     <= '0;
     image_ptr        <= '0;
     block_head       <= '0;
@@ -202,10 +210,10 @@ end
 // Output logic based on state
 always_comb begin
   pe_en         = compute_en;
-  pe_mode_sel   = relu_en;
+  pe_mode_sel   = relu_broadcast_en;
   pe_reg_reset  = (reg_reset_en & new_subimage) | layer_select_en;
   pe_mux_a_sel  = image_ptr;
-  pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (broadcast_en ? K_SIZE*K_SIZE : 0);
+  pe_mux_b_sel  = (image_ptr + block_head*K_SIZE) % (K_SIZE*K_SIZE) + (relu_broadcast_en ? K_SIZE*K_SIZE : 0);
 end
 
 endmodule
