@@ -9,7 +9,7 @@ module npu_scheduler #(
 ) (
   input  logic                        clk,          // work clock
   input  logic                        rst_n,        // async, high-active
-  input  logic                  [3:0] wen_i,        // write enable
+  input  logic                        wen_i,        // write enable
   input  logic             [W_IN-1:0] instr,        // input1 (treated as unsigned)
   input  logic           [ADDR_W-1:0] addr,
 
@@ -47,7 +47,7 @@ always_ff @(posedge clk or negedge rst_n) begin
     line_count        <= 4'b0;
     write_back_mode   <= 2'b00;
     buffer_a_mode     <= 1'b0;
-  end else if (wen_i[3]) begin
+  end else if (wen_i) begin
     if (layer_select_en) begin
       reg_reset_en      <= instr[6];
       relu_broadcast_en <= instr[5];

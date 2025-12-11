@@ -1,0 +1,83 @@
+
+There are no discarded input sections
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+SRAM0            0x80000000         0x00002000         xr
+SRAM1            0x81000000         0x00002000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+LOAD output/crt0.o
+LOAD output/test_simple.o
+                0x80000000                        . = ORIGIN (SRAM0)
+
+.text           0x80000000      0x630
+                0x80000000                        . = ALIGN (0x4)
+ *(.init)
+ *(.text*)
+ .text          0x80000000       0x30 output/crt0.o
+                0x80000000                _start
+ .text          0x80000030      0x1e4 output/test_simple.o
+                0x80000030                get_val_conv
+                0x80000090                get_val_fc
+                0x800000cc                get_new_input_conv
+                0x80000158                get_new_input_fc
+                0x800001bc                store_conv2_output
+ .text.startup  0x80000214      0x41c output/test_simple.o
+                0x80000214                main
+ *(.rodata*)
+                0x80000630                        . = ALIGN (0x4)
+
+.eh_frame       0x80000630       0xc8
+ .eh_frame      0x80000630       0xc8 output/test_simple.o
+
+.eh_frame_hdr   0x800006f8       0x3c
+ .eh_frame_hdr  0x800006f8       0x3c output/test_simple.o
+                0x800006f8                __GNU_EH_FRAME_HDR
+
+.rela.dyn       0x80000734        0x0
+ .rela.text     0x80000734        0x0 output/crt0.o
+                0x81000000                        . = ORIGIN (SRAM1)
+
+.weights        0x81000000        0x0
+                0x81000000                        . = ALIGN (0x4)
+ *(.weights)
+                0x81000000                        . = ALIGN (0x4)
+
+.data           0x81000000        0x0
+                0x81000000                        . = ALIGN (0x4)
+ *(.data*)
+ .data          0x81000000        0x0 output/crt0.o
+ .data          0x81000000        0x0 output/test_simple.o
+                0x81000000                        . = ALIGN (0x4)
+
+.bss            0x81000000        0x0
+                0x81000000                        . = ALIGN (0x4)
+                0x81000000                        _sbss = .
+ *(.bss*)
+ .bss           0x81000000        0x0 output/crt0.o
+ .bss           0x81000000        0x0 output/test_simple.o
+ *(COMMON*)
+                0x81000000                        . = ALIGN (0x4)
+                0x81000000                        _ebss = .
+                0x81002000                        _stack_start = (ORIGIN (SRAM1) + LENGTH (SRAM1))
+OUTPUT(output/test_simple.elf elf32-littleriscv)
+
+.riscv.attributes
+                0x00000000       0x2a
+ .riscv.attributes
+                0x00000000       0x28 output/crt0.o
+ .riscv.attributes
+                0x00000028       0x2a output/test_simple.o
+
+.comment        0x00000000       0x12
+ .comment       0x00000000       0x12 output/test_simple.o
+                                 0x13 (size before relaxing)
+
+.note.GNU-stack
+                0x00000000        0x0
+ .note.GNU-stack
+                0x00000000        0x0 output/test_simple.o

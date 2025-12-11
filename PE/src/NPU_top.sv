@@ -17,7 +17,7 @@ module NPU_top #(
 
   // SRAM-like memory port (compatible with axi2mem style)
   input  logic               req_i,        // access qualifier (assume always 1'b1 OK)
-  input  logic [3:0]         wen_i,        // byte enables; write if any bit=1
+  input  logic               wen_i,        // byte enables; write if any bit=1
   input  logic [ADDR_W-1:0]  addr_i,       // word index (offset / 4)
   input  logic [AXI_WIDTH-1:0]        wdata_i,
   output logic [AXI_WIDTH-1:0]        rdata_o
@@ -51,7 +51,7 @@ module NPU_top #(
   wire [1:0] write_back_mode;
   wire [DATA_WIDTH-1:0] instr;
 
-  assign instr = wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH] & {DATA_WIDTH{wen_i[3]}}; // valid only if write enabled
+  assign instr = wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH] & {DATA_WIDTH{wen_i[0]}}; // valid only if write enabled
 
   npu_scheduler #(
     .N               (N),
