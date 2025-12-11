@@ -200,7 +200,7 @@ module NPU_top #(
   assign data_in_output[0] = {AXI_WIDTH{1'b0}};
   assign data_in_output[1] = {results_truncated[0], results_truncated[1], results_truncated[2], results_truncated[3]};
   assign data_in_output[2] = {results_truncated[4], results_truncated[5], results_truncated[6], results_truncated[7]};
-  assign data_in_output[3] = {results_truncated[8], results_truncated[9], adder_tree_out, 8'b0};
+  assign data_in_output[3] = {results_truncated[8], results_truncated[9], 8'b0, adder_tree_out};
 
   pe_mux #(
     .WIDTH     (AXI_WIDTH),
