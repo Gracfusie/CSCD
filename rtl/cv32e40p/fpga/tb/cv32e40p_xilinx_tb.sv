@@ -13,6 +13,18 @@ module cv32e40p_xilinx_tb;
   logic clk_led;
   logic tck_led;
 
+  // NPU signal logger
+  integer npu_log_fd;
+  logic [31:0] prev_wdata;
+  logic [31:0] prev_rdata;
+
+  // Open log at time 0
+  initial begin
+    npu_log_fd = $fopen("/home/almalinux/workspace/CSCD/rtl/cv32e40p/fpga/output/npu_signals.log", "w");
+    prev_wdata = 32'hx;
+    prev_rdata = 32'hx;
+  end
+
   // Instantiate the testharness module
   cv32e40p_xilinx i_cv32e40p_xilinx (
     // .fpga_clk_i(fpga_clk_i),
@@ -34,6 +46,21 @@ module cv32e40p_xilinx_tb;
   // Clock generation (50% duty cycle)
   always #5 fpga_clk_i = ~fpga_clk_i;
 
+  // Monitor NPU signals and log on any change
+  always @(i_cv32e40p_xilinx.i_npu.wdata_i or i_cv32e40p_xilinx.i_npu.rdata_o) begin
+    if (npu_log_fd != 0) begin
+      if (i_cv32e40p_xilinx.i_npu.wdata_i !== prev_wdata ||
+          i_cv32e40p_xilinx.i_npu.rdata_o !== prev_rdata) begin
+        $fwrite(npu_log_fd, "%0t: wdata_i=%08h rdata_o=%08h\n", $time,
+                i_cv32e40p_xilinx.i_npu.wdata_i,
+                i_cv32e40p_xilinx.i_npu.rdata_o);
+        $fflush(npu_log_fd);
+        prev_wdata = i_cv32e40p_xilinx.i_npu.wdata_i;
+        prev_rdata = i_cv32e40p_xilinx.i_npu.rdata_o;
+      end
+    end
+  end
+
   // Testbench initial block
   initial begin
     // Initialize signals
@@ -51,6 +78,10 @@ module cv32e40p_xilinx_tb;
     #1000000;
     $writememh("/home/almalinux/workspace/CSCD/rtl/cv32e40p/fpga/output/sram_dump.hex", i_cv32e40p_xilinx.i_sramd.memory);
     $display("SRAM dumped to sram_dump.hex");
+    if (npu_log_fd != 0) begin
+      $fclose(npu_log_fd);
+      $display("NPU log closed (npu_signals.log)");
+    end
     $finish;
   end
 
@@ -60,8 +91,5 @@ module cv32e40p_xilinx_tb;
     $fsdbDumpvars(0, cv32e40p_xilinx_tb);
     $fsdbDumpMDA();
   end
-
-  
-
 
 endmodule
