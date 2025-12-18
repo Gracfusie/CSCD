@@ -61,7 +61,7 @@ vcs:
 
 verdi: vcs
 	cd build && \
-	verdi -sv +define+SIM ${SRC_LIST} -top ${TOP} -ssf waveform.fsdb
+	verdi -sv +define+SIM ${SRC_LIST} -top ${TOP} -ssf waveform.fsdb -sswr ../signal.rc
 
 # gate_vcs:
 # 	rm -rf build/

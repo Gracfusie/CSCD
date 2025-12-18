@@ -13,9 +13,25 @@ module bootram(
     
     always@ (posedge clk_i or negedge rst_ni) begin
 	if(!rst_ni) begin
+		
+		///////////////////////////////////
+		// test the lb function of sram first.
+		// mem_q[2] <= 32'h00028183;
+		//// 0000,0000,0001,00101,000,00011,0000011 // lb x3, x5(1)
+		// mem_q[3] <= 32'h00028067;
+		// mem_q[0] <= 32'h000802b7;
+		// mem_q[1] <= 32'h0012829b;
+		// mem_q[2] <= 32'h00c29293;
+		// mem_q[3] <= 32'h00128293;
+		// mem_q[4] <= 32'h00028303;
+		// mem_q[5] <= 32'h800002b7;
+		// mem_q[6] <= 32'h00028313;
+		// mem_q[7] <= 32'h00028067;
+		///////////////////////////////////
 		mem_q[0] <= 32'h800002b7; // lui t0, 0x80000 base addr of sram_ff
 		mem_q[1] <= 32'h00028313; // addi t1, t0, 0
 		mem_q[2] <= 32'h00028067; // jr t0
+		///////////////////////////////////
 	    // mem_q[0] <= 32'h800042b7; //lui t0,0x80004 base addr of sram_ff 
 	    // // mem_q[1] <= 32'h10000313; //addi t1,t0,0x100
 		// mem_q[1] <= 32'h10028313;
