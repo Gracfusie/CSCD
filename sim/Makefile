@@ -57,7 +57,7 @@ vcs:
 	rm -rf build/
 	mkdir build/
 	cd build && \
-	vcs ${VCS_OPTIONS} ${SRC_LIST} -top ${TOP} -R
+	vcs -sv +define+SIM ${VCS_OPTIONS} ${SRC_LIST} -top ${TOP} -R
 
 verdi: vcs
 	cd build && \

@@ -22,6 +22,10 @@
 ../../PE/src/npu_scheduler.sv
 ../../PE/src/NPU_top.sv
 
+../../rtl/RA1SHD_2048x32M8/RA1SHD_2048x32M8_icache.v
+../../rtl/RA1SHD_2048x32M8/RA1SHD_2048x32M8_dcache.v
+../../rtl/RA1SHD_2048x32M8/RA1SHD_2048x32M8.v
+
 ../../rtl/cv32e40p/fpga/rtl/src/sram_ff.sv
 // WARNING: ORDER is important !!!
 ../../rtl/cv32e40p/rtl/include/cv32e40p_pkg.sv

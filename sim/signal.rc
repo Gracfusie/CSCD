@@ -16,16 +16,16 @@ signalSpacing 5
 
 ; windowTimeUnit is used for zoom, cursor & marker
 ; waveform viewport range
-zoom 0.000000 2057511.170894
+zoom 0.000000 19261.025594
 cursor 125000.000000
 marker 0.000000
 
 ; user define markers
 ; userMarker time_pos marker_name color linestyle
 ; visible top row signal index
-top 37
+top 0
 ; marker line index
-markerPos 40
+markerPos 22
 
 ; event list
 ; addEvent event_name event_expression
@@ -46,55 +46,33 @@ curSTATUS ByChange
 
 
 addGroup "G1"
-addSubGroup "dcache"
 activeDirFile "" "/home/almalinux/workspace/project/CSCD/sim/build/waveform.fsdb"
-addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_srami/req_i
-addSignal -h 15 -holdScope wen_i[3:0]
-addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_sramd/addr_i[10:0]
-addSignal -h 15 -holdScope data_i[31:0]
-addSignal -h 15 -holdScope data_o[31:0]
-addSignal -h 15 -holdScope memory[0:2047]
-endSubGroup "dcache"
-addSignal -expanded -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_ri5cy/core_i/id_stage_i/register_file_i/mem[31:0]
-addSignal -h 15 -holdScope mem[31][31:0]
-addSignal -h 15 -holdScope mem[30][31:0]
-addSignal -h 15 -holdScope mem[29][31:0]
-addSignal -h 15 -holdScope mem[28][31:0]
-addSignal -h 15 -holdScope mem[27][31:0]
-addSignal -h 15 -holdScope mem[26][31:0]
-addSignal -h 15 -holdScope mem[25][31:0]
-addSignal -h 15 -holdScope mem[24][31:0]
-addSignal -h 15 -holdScope mem[23][31:0]
-addSignal -h 15 -holdScope mem[22][31:0]
-addSignal -h 15 -holdScope mem[21][31:0]
-addSignal -h 15 -holdScope mem[20][31:0]
-addSignal -h 15 -holdScope mem[19][31:0]
-addSignal -h 15 -holdScope mem[18][31:0]
-addSignal -h 15 -holdScope mem[17][31:0]
-addSignal -h 15 -holdScope mem[16][31:0]
-addSignal -h 15 -holdScope mem[15][31:0]
-addSignal -h 15 -holdScope mem[14][31:0]
-addSignal -h 15 -holdScope mem[13][31:0]
-addSignal -h 15 -holdScope mem[12][31:0]
-addSignal -h 15 -holdScope mem[11][31:0]
-addSignal -h 15 -holdScope mem[10][31:0]
-addSignal -h 15 -holdScope mem[9][31:0]
-addSignal -h 15 -holdScope mem[8][31:0]
-addSignal -h 15 -holdScope mem[7][31:0]
-addSignal -h 15 -holdScope mem[6][31:0]
-addSignal -h 15 -holdScope mem[5][31:0]
-addSignal -h 15 -holdScope mem[4][31:0]
-addSignal -h 15 -holdScope mem[3][31:0]
-addSignal -h 15 -holdScope mem[2][31:0]
-addSignal -h 15 -holdScope mem[1][31:0]
-addSignal -h 15 -holdScope mem[0][31:0]
+addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_ri5cy/core_i/id_stage_i/register_file_i/mem[31:0]
 addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_ri5cy/data_rdata_i[31:0]
-addSignal -h 15 -holdScope instr_rdata_i[31:0]
+addSubGroup "instruction" -e FALSE
+addSignal -h 15 -UNSIGNED -HEX /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_ri5cy/core_i/if_stage_i/pc_if_o[31:0]
+addSignal -h 15 -holdScope pc_id_o[31:0]
+addSignal -h 15 -holdScope exc_pc[31:0]
+addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_ri5cy/core_i/id_stage_i/illegal_insn_dec
+addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_ri5cy/instr_rdata_i[31:0]
+endSubGroup "instruction"
+addSubGroup "icache" -e FALSE
+addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_icache_sram/Q[31:0]
+addSignal -h 15 -holdScope CEN
+addSignal -h 15 -holdScope A[10:0]
+endSubGroup "icache"
+addSubGroup "dcache"
+addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_dcache_sram/mem[2047:0]
+addSignal -h 15 -holdScope Q[31:0]
+addSignal -h 15 -holdScope CEN
+addSignal -h 15 -holdScope WEN[3:0]
+addSignal -h 15 -holdScope A[10:0]
+addSignal -h 15 -holdScope D[31:0]
+endSubGroup "dcache"
+addSubGroup "npu"
 addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_npu/wdata_i[31:0]
 addSignal -h 15 -holdScope rdata_o[31:0]
-addSignal -h 15 /cv32e40p_xilinx_tb/i_cv32e40p_xilinx/i_srami/data_o[31:0]
-addSignal -h 15 -UNSIGNED -HEX -holdScope addr_i[10:0]
-addSignal -h 15 -holdScope data_o[31:0]
+endSubGroup "npu"
 addGroup "G2"
 
 ; getSignalForm Scope Hierarchy Status

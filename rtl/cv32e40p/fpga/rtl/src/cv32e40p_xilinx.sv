@@ -453,17 +453,26 @@ module cv32e40p_xilinx (
     assign srami_wen_n = ~(srami_be & {4{srami_we}});
 
 `ifdef SIM
-    sram_ff #(
-        .AddrWidth(11), // 2048 Words
-        .DataWidth(32),
-        .INIT_FILE("../../rtl/cv32e40p/fpga/tb/icache.hex")
-    ) i_srami (
-        .clk_i  (clk_i),
-        .req_i  (srami_req),
-        .wen_i  (srami_be & {4{srami_we}}),
-        .addr_i (srami_addr[12:2]),
-        .data_i (srami_wdata),
-        .data_o (srami_rdata)
+//     sram_ff #(
+//         .AddrWidth(11), // 2048 Words
+//         .DataWidth(32),
+//         .INIT_FILE("../../rtl/cv32e40p/fpga/tb/icache.hex")
+//     ) i_srami (
+//         .clk_i  (clk_i),
+//         .req_i  (srami_req),
+//         .wen_i  (srami_be & {4{srami_we}}),
+//         .addr_i (srami_addr[12:2]),
+//         .data_i (srami_wdata),
+//         .data_o (srami_rdata)
+//     );
+    RA1SHD_2048x32M8_icache i_icache_sram (
+        .Q   ( srami_rdata      ),
+        .CLK ( clk_i            ),
+        .CEN ( ~srami_req       ),     // low-active chip enable
+        .WEN ( srami_wen_n      ),     // low-active byte write enable
+        .A   ( srami_addr[12:2] ),     // word address (8KB = 2048 words)
+        .D   ( srami_wdata      ),
+        .OEN ( 1'b0             )      // low-active output enable, always enabled
     );
 `else
 	RA1SHD_2048x32M8 i_icache_sram (
@@ -505,17 +514,26 @@ module cv32e40p_xilinx (
     logic [3:0]     sramd_wen_n;
     assign sramd_wen_n = ~(sramd_be & {4{sramd_we}});
 `ifdef SIM
-    sram_ff #(
-        .AddrWidth(11), // 2048 Words
-        .DataWidth(32),
-        .INIT_FILE("../../rtl/cv32e40p/fpga/tb/dcache.hex")
-    ) i_sramd (
-        .clk_i  (clk_i),
-        .req_i  (sramd_req),
-        .wen_i  (sramd_be & {4{sramd_we}}),
-        .addr_i (sramd_addr[12:2]),
-        .data_i (sramd_wdata),
-        .data_o (sramd_rdata)
+    // sram_ff #(
+    //     .AddrWidth(11), // 2048 Words
+    //     .DataWidth(32),
+    //     .INIT_FILE("../../rtl/cv32e40p/fpga/tb/dcache.hex")
+    // ) i_sramd (
+    //     .clk_i  (clk_i),
+    //     .req_i  (sramd_req),
+    //     .wen_i  (sramd_be & {4{sramd_we}}),
+    //     .addr_i (sramd_addr[12:2]),
+    //     .data_i (sramd_wdata),
+    //     .data_o (sramd_rdata)
+    // );
+    RA1SHD_2048x32M8_dcache i_dcache_sram (
+        .Q   ( sramd_rdata      ),
+        .CLK ( clk_i            ),
+        .CEN ( ~sramd_req       ),     // low-active chip enable
+        .WEN ( sramd_wen_n      ),     // low-active byte write enable
+        .A   ( sramd_addr[12:2] ),     // word address (8KB = 2048 words)
+        .D   ( sramd_wdata      ),
+        .OEN ( 1'b0             )      // low-active output enable, always enabled
     );
 `else
     RA1SHD_2048x32M8 i_dcache_sram (
