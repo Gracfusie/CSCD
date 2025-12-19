@@ -1,3 +1,4 @@
 /sim/*
+Verdi.ses.*
 !/sim/Makefile
 !/sim/signal.rc

@@ -75,7 +75,7 @@ module cv32e40p_xilinx_tb;
     #10 rst_ni = 1;
     trst_ni = 1;
     // Run simulation for 100 time units and finish
-    #1000000;
+    #10000000;
     $writememh("/home/almalinux/workspace/CSCD/rtl/cv32e40p/fpga/output/sram_dump.hex", i_cv32e40p_xilinx.i_dcache_sram.mem);
     $display("SRAM dumped to sram_dump.hex");
     if (npu_log_fd != 0) begin
