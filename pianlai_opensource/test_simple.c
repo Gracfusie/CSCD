@@ -85,7 +85,7 @@ void store_fc1_output(volatile uint32_t * dcache, volatile uint32_t * acc0) {
     // 9、10
     *acc0 = 0x0c000000;
     *dcache |= (0x000000FF & (*acc0 >> 24));
-    ++dcache;
+    dcache += 4;
     *dcache |= (0x00FF0000 & *acc0);
 }
 
