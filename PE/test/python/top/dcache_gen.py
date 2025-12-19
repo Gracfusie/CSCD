@@ -13,7 +13,6 @@ output_fc2 = torch.load('../output_py.pt')['output_fc2']
 
 def write_instr(f):
     instr = str(layer_select_en)+str(reuse)+str(relu_en)+str(broadcast_en)+format(write_back_mode, '02b')+format(load_mode, '02b')
-    # wdata = instr+load_data_1+load_data_2+load_data_3
     wdata = ''
     for i in [instr, load_data_1, load_data_2, load_data_3]:
         wdata += format(int(i, 2), '02x')
@@ -29,70 +28,6 @@ def load_hex_weights(file_path):
             bin_str = format(int_val, '08b')
             weights.append(bin_str)
     return weights
-
-def load_sample_input(file_path):
-    with open(file_path, "r") as f:
-        data = f.read().split()
-    data = np.array(list(map(int, data)), dtype=np.int32)
-    data = data.reshape(5, 1, 16, 15)
-    return data
-
-def load_conv2_input(file_path):
-    with open(file_path, 'r') as f:
-        data = f.read().splitlines()
-    out_npu = []
-    for i in range(546):
-        data_1 = data[i][0:8]
-        data_2 = data[i][8:16]
-        data_3 = data[i][16:24]
-        data_4 = data[i][24:32]
-        out_npu.append(int(data_1, 2))
-        out_npu.append(int(data_2, 2))
-        if (i % 3 != 2):
-            out_npu.append(int(data_3, 2))
-            out_npu.append(int(data_4, 2))
-    out_npu = np.array(out_npu)
-    out_npu = out_npu.reshape(1, 13, 14, 10)
-    # transpose
-    out_npu = out_npu.transpose(0, 3, 2, 1)
-    out_npu = torch.from_numpy(out_npu)
-    return out_npu
-
-def load_fc1_input(file_path):
-    with open(file_path, 'r') as f:
-        data = f.read().splitlines()
-    out_npu = []
-    for i in range(546, 942):
-        data_3 = data[i][16:24]
-        if (i % 3 == 2):
-            out_npu.append(int(data_3, 2))
-    out_npu = np.array(out_npu)
-    out_npu = out_npu.reshape(1, 11, 12, 1)
-    # transpose
-    out_npu = out_npu.transpose(0, 3, 2, 1)
-    out_npu = torch.from_numpy(out_npu)
-    out_npu = out_npu.flatten(1)
-    out_npu = torch.nn.functional.pad(out_npu, (0, 3), "constant", 0)
-    return out_npu
-
-def load_fc2_input(file_path):
-    with open(file_path, 'r') as f:
-        data = f.read().splitlines()
-    out_npu = []
-    for i in range(942, 945):
-        data_1 = data[i][0:8]
-        data_2 = data[i][8:16]
-        data_3 = data[i][16:24]
-        data_4 = data[i][24:32]
-        out_npu.append(int(data_1, 2))
-        out_npu.append(int(data_2, 2))
-        if (i % 3 != 2):
-            out_npu.append(int(data_3, 2))
-            out_npu.append(int(data_4, 2))
-    out_npu = np.array(out_npu)
-    out_npu = torch.from_numpy(out_npu)
-    out_npu = torch.nn.functional.pad(out_npu, (0, 8), "constant", 0)
-    return out_npu
 
 def switch_layer(f, layer):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
@@ -148,8 +83,7 @@ def conv1_load_A(f):
 def conv1_load_C(f):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
 
-    sample_input = load_sample_input('../handout_new/data/sample_input.txt')
-    sample_input = sample_input[1, 0]  # shape: (16, 15)
+    sample_input = q_sample_input[0, 0]  # shape: (16, 15)
 
     for col in range(1, 14):
         for row in range(1, 15):
@@ -159,7 +93,6 @@ def conv1_load_C(f):
             relu_en = 0
             broadcast_en = 0
             load_mode = 3
-            cycles = 1
             if row == 1:
                 reuse = 0
                 for i in [row-1, row, row+1]:
@@ -172,7 +105,6 @@ def conv1_load_C(f):
                 load_data_1 = format(sample_input[row+1, col-1], '08b')
                 load_data_2 = format(sample_input[row+1, col], '08b')
                 load_data_3 = format(sample_input[row+1, col+1], '08b')
-                # write_back_mode = 0
                 write_instr(f)
 
 def conv2_load_A(f):
@@ -193,40 +125,28 @@ def conv2_load_A(f):
         load_data_3 = conv2_weight[i*3 + 2]
         write_instr(f)
 
-def conv2_load_B(f):
-    global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
+def conv2_load_B(f, ref=False):
+    if (ref):
+        for w in range(13):
+            for h in range(14):
+                for c in range(3):
+                    load_data_1 = output_conv1[0, 4*c, h, w]
+                    load_data_2 = output_conv1[0, 4*c+1, h, w]
+                    if c < 2:
+                        load_data_3 = output_conv1[0, 4*c+2, h, w]
+                        load_data_4 = output_conv1[0, 4*c+3, h, w]
+                    else:
+                        load_data_3 = 0
+                        load_data_4 = 0
+                    wdata = ''
+                    for i in [load_data_1, load_data_2, load_data_3, load_data_4]:
+                        wdata += format(i, '02x')
+                    f.write(f"{wdata}\n")
+    else:
+        for i in range(546):
+            f.write('00000000\n')
 
-    # conv2_input = load_conv2_input('../rdata_output.txt')
-    # conv2_input = conv2_input[0]  # shape: (10, 14, 13)
-    conv2_input = torch.zeros((10, 14, 13), dtype=torch.uint8)  # Dummy data for testing
-
-    for col in range(1, 12):
-        for row in range(1, 13):
-            layer_select_en = 0
-            addr_i = 0
-            write_back_mode = 0
-            relu_en = 0
-            broadcast_en = 0
-            load_mode = 2
-            if row == 1:
-                reuse = 0
-                cycles = 1
-                for i in [row-1, row, row+1]:
-                    for j in range(10):
-                        load_data_1 = format(conv2_input[j, i, col-1], '08b')
-                        load_data_2 = format(conv2_input[j, i, col], '08b')
-                        load_data_3 = format(conv2_input[j, i, col+1], '08b')
-                        write_instr(f)
-            else:
-                reuse = 1
-                cycles = 1
-                for j in range(10):
-                    load_data_1 = format(conv2_input[j, row+1, col-1], '08b')
-                    load_data_2 = format(conv2_input[j, row+1, col], '08b')
-                    load_data_3 = format(conv2_input[j, row+1, col+1], '08b')
-                    write_instr(f)
-
-def fc1_load_A_C(f):
+def fc1_load_A_C(f, ref=False):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
     
     fc1_weight = load_hex_weights('../handout_new/data/fc1_weight.txt')
@@ -237,11 +157,11 @@ def fc1_load_A_C(f):
     fc1_weight = fc1_weight.reshape(10, 132)
     pad_values = np.full((10, 3), '00000000', dtype=object)
     fc1_weight = np.hstack((fc1_weight, pad_values))
-    # fc1_input = load_fc1_input('../rdata_output.txt') # shape: (1, 135)
-    fc1_input = torch.zeros((1, 135), dtype=torch.uint8)  # Dummy data for testing
-    for w in range(11):
-        for h in range(12):
-            fc1_input[0, w*12 + h] = output_conv2[0, 0, h, w]
+    fc1_input = torch.zeros((1, 135), dtype=torch.uint8)
+    if (ref):
+        for w in range(11):
+            for h in range(12):
+                fc1_input[0, w*12 + h] = output_conv2[0, 0, h, w]
 
     layer_select_en = 0
     addr_i = 0
@@ -264,17 +184,17 @@ def fc1_load_A_C(f):
             load_data_3 = format(fc1_input[0, i*9 + k*3 + 2], '08b')
             write_instr(f)
 
-def fc2_load_A_C(f):
+def fc2_load_A_C(f, ref=False):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
     
     fc2_weight = load_hex_weights('../handout_new/data/fc2_weight.txt')
     fc2_weight = np.array(fc2_weight)
     pad_values = np.full(8, '00000000', dtype=object)
     fc2_weight = np.hstack((fc2_weight, pad_values))
-    # fc2_input = load_fc2_input('../rdata_output.txt') # shape: (18)
-    fc2_input = torch.zeros((18,), dtype=torch.uint8)  # Dummy data for testing
-    for i in range(10):
-        fc2_input[i] = output_fc1[0, i]
+    fc2_input = torch.zeros((18,), dtype=torch.uint8)
+    if (ref):
+        for i in range(10):
+            fc2_input[i] = output_fc1[0, i]
 
     layer_select_en = 0
     addr_i = 0
@@ -296,51 +216,35 @@ def fc2_load_A_C(f):
             load_data_3 = format(fc2_input[j*9 + i*3 + 2], '08b')
             write_instr(f)
 
-# initialize signals
-rst_n = 0
-layer_select_en = 0 
-addr_i = 0            # 3 bits
-reuse = 0
-write_back_mode = 0   # 2 bits
-relu_en = 0
-broadcast_en = 0
-load_mode = 0         # 2 bits
-load_data_1 = 0       # 8 bits
-load_data_2 = 0       # 8 bits
-load_data_3 = 0       # 8 bits
+def final_result(f, ref=False):
+    if (ref):
+        f.write('000000' + format(int(output_fc2[0]), '02x'))
+    else:
+        f.write('00000000')
 
-file_path = 'dcache_ref.hex'
-with open(file_path, 'w') as f:
+def dcache_gen(file_path, ref):
 
-    # conv1
-    switch_layer(f, 'conv1') # switch to conv1
-    conv1_load_A(f) # LOAD_A for conv1
-    conv1_load_C(f) # LOAD_C for conv1
+    with open(file_path, 'w') as f:
 
-    # conv2
-    switch_layer(f, 'conv2') # switch to conv2
-    conv2_load_A(f) # LOAD_A for conv2
+        # conv1
+        switch_layer(f, 'conv1') # switch to conv1
+        conv1_load_A(f) # LOAD_A for conv1
+        conv1_load_C(f) # LOAD_C for conv1
 
-    for w in range(13):
-        for h in range(14):
-            for c in range(3):
-                load_data_1 = output_conv1[0, 4*c, h, w]
-                load_data_2 = output_conv1[0, 4*c+1, h, w]
-                if c < 2:
-                    load_data_3 = output_conv1[0, 4*c+2, h, w]
-                    load_data_4 = output_conv1[0, 4*c+3, h, w]
-                else:
-                    load_data_3 = 0
-                    load_data_4 = 0
-                wdata = ''
-                for i in [load_data_1, load_data_2, load_data_3, load_data_4]:
-                    wdata += format(i, '02x')
-                f.write(f"{wdata}\n")
+        # conv2
+        switch_layer(f, 'conv2') # switch to conv2
+        conv2_load_A(f) # LOAD_A for conv2
+        conv2_load_B(f, ref) # LOAD_B for conv2
 
-    # fc1
-    switch_layer(f, 'fc1') # switch to fc1
-    fc1_load_A_C(f) # LOAD_A and LOAD_C for fc1
+        # fc1
+        switch_layer(f, 'fc1') # switch to fc1
+        fc1_load_A_C(f, ref) # LOAD_A and LOAD_C for fc1
 
-    # fc2
-    switch_layer(f, 'fc2') # switch to fc2
-    fc2_load_A_C(f) # LOAD_A and LOAD_C for fc2
+        # fc2
+        switch_layer(f, 'fc2') # switch to fc2
+        fc2_load_A_C(f, ref) # LOAD_A and LOAD_C for fc2
+        final_result(f, ref) # result
+
+if __name__ == "__main__":
+    dcache_gen('../../../../rtl/cv32e40p/fpga/tb/dcache.hex', ref=False)
+    dcache_gen('dcache_ref.hex', ref=True)

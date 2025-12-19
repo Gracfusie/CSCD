@@ -59,3 +59,6 @@ include/*.sv：包（package）与宏定义（如 cv32e40p_pkg.sv, cv32e40p_fpu_
     - pulp_platform_common_cells：各种通用硬件单元（fifo、stream、lfsr、sync 等）。
     - pulp_platform_fpnew / opene906：浮点单元（FPU）实现，div/sqrt、FMA 等。
 - 用途：这些是可复用组件，CPU 的浮点/高级功能通常通过这些模块提供。
+
+## NPU 架构设计
+![NPU架构](./image/npu_arch.svg)

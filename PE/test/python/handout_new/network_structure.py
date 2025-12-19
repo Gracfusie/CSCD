@@ -88,10 +88,10 @@ class QuantizedCNN(nn.Module):
         #print("Shape of x:", x.shape)
         #x = quantized_relu8(x)
         x = quantized_conv3d(x, self.q_conv2_w, self.q_conv2_b)  # Use 3D convolution
-        print("Shape of x:", x.shape)
+        # print("Shape of x:", x.shape)
         #x = quantized_relu8(x)
         x = x.view(x.size(0), -1)  # Flatten for fully connected layers
-        print("Shape of x:", x.shape)
+        # print("Shape of x:", x.shape)
         x = quantized_linear(x, self.q_fc1_w, self.q_fc1_b)
         #print("Shape of x:", x.shape)
         #x = quantized_relu8(x)
@@ -133,10 +133,9 @@ fc2_weight = load_hex_weights('data/fc2_weight.txt')
 # For conv2_weight, reshape the 9x10 matrix to 3x3x10x1
 conv1_weight = conv1_weight.reshape(10, 1, 3, 3)  # Reshaping 9x10 to 3x3x10x1
 conv2_weight = conv2_weight.reshape(1, 10, 3, 3)  # Reshaping 9x10 to 3x3x10x1
-print(conv2_weight)
 fc1_weight = fc1_weight.reshape(10, 132)  # Reshaping 9x10 to 3x3x10x1
 fc2_weight = fc2_weight.reshape(1, 10)
-# print(fc2_weight)
+print(fc2_weight)
 
 # Bias initialization (zero)
 conv1_bias = np.zeros(10, dtype=np.int8)

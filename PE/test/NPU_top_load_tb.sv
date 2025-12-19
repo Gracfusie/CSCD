@@ -92,7 +92,7 @@ module NPU_top_load_tb;
     rst_n = 1;
     #(`T);
 
-    filename = "../../PE/test/python/wdata_input.txt";
+    filename = "../../PE/test/python/npu/wdata_input_3598.txt";
     fd = $fopen(filename, "r");
     if (fd == 0) begin
       $display("Failed to open file: %s", filename);
@@ -123,7 +123,7 @@ module NPU_top_load_tb;
     integer fd;
     string filename;
     string rdata_str;
-    filename = "../../PE/test/python/rdata_output.txt";
+    filename = "../../PE/test/python/npu/rdata_output.txt";
     fd = $fopen(filename, "w");
     while (1) begin
       @(posedge clk);
@@ -137,39 +137,5 @@ module NPU_top_load_tb;
     end
     $fclose(fd);
   end
-
-  // final begin : dump_npu_buffer_final
-  //   integer fd;
-  //   int i, j;
-  //   int width;
-  //   string filename;
-
-  //   filename = "npu_buffer_output.txt";
-  //   fd = $fopen(filename, "w");
-  //   if (fd == 0) begin
-  //     $display("[ERROR] Cannot open %s for writing!", filename);
-  //     disable dump_npu_buffer_final;
-  //   end
-
-  //   $display("[INFO] Dumping NPU buffer to %s ...", filename);
-
-  //   for (i = 0; i < dut.BUFFER_DEPTH; i++) begin
-  //       buffer_word = dut.npu_buffer[i];
-  //       // 逐段拆分输出
-  //       for (j = 0; j < K_SIZE; j++) begin
-  //           segment = buffer_word[(j+1)*DATA_WIDTH-1 -: DATA_WIDTH];
-  //           segment_str = $sformatf("%0b", segment);
-  //           // 补零到固定宽度
-  //           while (segment_str.len() < DATA_WIDTH)
-  //               segment_str = {"0", segment_str};
-  //           // 输出该段
-  //           $fwrite(fd, "%s ", segment_str);
-  //       end
-  //       $fwrite(fd, "\n");  // 换行
-  //       if (i == 29 || i == 59) begin
-  //         $fwrite(fd, "\n");  // 换行
-  //       end
-  //   end
-  // end
 
 endmodule

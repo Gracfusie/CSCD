@@ -5,7 +5,7 @@ with open('dcache_ref.hex', 'r') as f:
 with open('sram_dump.hex', 'r') as f:
     lines_actual = f.readlines()
 
-for i in range(1325):
+for i in range(1326):
     str1 = lines_ref[i].strip()
     str2 = lines_actual[i].strip()
     if i >= 270 and i <= 815 and i % 3 == 2:
