@@ -133,9 +133,10 @@ fc2_weight = load_hex_weights('data/fc2_weight.txt')
 # For conv2_weight, reshape the 9x10 matrix to 3x3x10x1
 conv1_weight = conv1_weight.reshape(10, 1, 3, 3)  # Reshaping 9x10 to 3x3x10x1
 conv2_weight = conv2_weight.reshape(1, 10, 3, 3)  # Reshaping 9x10 to 3x3x10x1
+print(conv2_weight)
 fc1_weight = fc1_weight.reshape(10, 132)  # Reshaping 9x10 to 3x3x10x1
 fc2_weight = fc2_weight.reshape(1, 10)
-print(fc2_weight)
+# print(fc2_weight)
 
 # Bias initialization (zero)
 conv1_bias = np.zeros(10, dtype=np.int8)

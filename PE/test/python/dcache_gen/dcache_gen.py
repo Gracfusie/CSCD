@@ -3,14 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-# load the correct output
-q_sample_input = torch.load('../output_py.pt')['input']
-output_conv1 = torch.load('../output_py.pt')['output_conv1']
-output_conv2_im = torch.load('../output_py.pt')['output_conv2_im']
-output_conv2 = torch.load('../output_py.pt')['output_conv2']
-output_fc1 = torch.load('../output_py.pt')['output_fc1']
-output_fc2 = torch.load('../output_py.pt')['output_fc2']
-
 def write_instr(f):
     instr = str(layer_select_en)+str(reuse)+str(relu_en)+str(broadcast_en)+format(write_back_mode, '02b')+format(load_mode, '02b')
     # wdata = instr+load_data_1+load_data_2+load_data_3
@@ -53,7 +45,7 @@ def load_conv2_input(file_path):
             out_npu.append(int(data_4, 2))
     out_npu = np.array(out_npu)
     out_npu = out_npu.reshape(1, 13, 14, 10)
-    # transpose
+    # 转置
     out_npu = out_npu.transpose(0, 3, 2, 1)
     out_npu = torch.from_numpy(out_npu)
     return out_npu
@@ -68,7 +60,7 @@ def load_fc1_input(file_path):
             out_npu.append(int(data_3, 2))
     out_npu = np.array(out_npu)
     out_npu = out_npu.reshape(1, 11, 12, 1)
-    # transpose
+    # 转置
     out_npu = out_npu.transpose(0, 3, 2, 1)
     out_npu = torch.from_numpy(out_npu)
     out_npu = out_npu.flatten(1)
@@ -93,6 +85,33 @@ def load_fc2_input(file_path):
     out_npu = torch.from_numpy(out_npu)
     out_npu = torch.nn.functional.pad(out_npu, (0, 8), "constant", 0)
     return out_npu
+
+def waiting(f, cycles):    
+    global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
+    layer_select_en = 0
+    addr_i = 0
+    reuse = 0
+    write_back_mode = 0
+    relu_en = 1
+    broadcast_en = 1
+    load_mode = 0
+    load_data_1 = format(0, '08b')
+    load_data_2 = format(0, '08b')
+    load_data_3 = format(0, '08b')
+    # for _ in range(cycles):
+        # write_instr(f)
+
+def write_back(f):
+    global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
+    layer_select_en = 0
+    addr_i = 0
+    reuse = 0
+    relu_en = 1
+    broadcast_en = 1
+    load_mode = 0
+    # for i in range(3):
+    #     write_back_mode = i + 1
+    #     write_instr(f)
 
 def switch_layer(f, layer):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
@@ -166,6 +185,10 @@ def conv1_load_C(f):
                     load_data_1 = format(sample_input[i, col-1], '08b')
                     load_data_2 = format(sample_input[i, col], '08b')
                     load_data_3 = format(sample_input[i, col+1], '08b')
+                    # if i == row+1:
+                    #     write_back_mode = 1
+                    # else:
+                    #     write_back_mode = 0
                     write_instr(f)
             else:
                 reuse = 1
@@ -174,6 +197,8 @@ def conv1_load_C(f):
                 load_data_3 = format(sample_input[row+1, col+1], '08b')
                 # write_back_mode = 0
                 write_instr(f)
+            waiting(f, cycles)
+            write_back(f)
 
 def conv2_load_A(f):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
@@ -225,6 +250,8 @@ def conv2_load_B(f):
                     load_data_2 = format(conv2_input[j, row+1, col], '08b')
                     load_data_3 = format(conv2_input[j, row+1, col+1], '08b')
                     write_instr(f)
+            waiting(f, cycles)
+            write_back(f)
 
 def fc1_load_A_C(f):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
@@ -239,9 +266,6 @@ def fc1_load_A_C(f):
     fc1_weight = np.hstack((fc1_weight, pad_values))
     # fc1_input = load_fc1_input('../rdata_output.txt') # shape: (1, 135)
     fc1_input = torch.zeros((1, 135), dtype=torch.uint8)  # Dummy data for testing
-    for w in range(11):
-        for h in range(12):
-            fc1_input[0, w*12 + h] = output_conv2[0, 0, h, w]
 
     layer_select_en = 0
     addr_i = 0
@@ -263,6 +287,8 @@ def fc1_load_A_C(f):
             load_data_2 = format(fc1_input[0, i*9 + k*3 + 1], '08b')
             load_data_3 = format(fc1_input[0, i*9 + k*3 + 2], '08b')
             write_instr(f)
+        waiting(f, 1)
+    write_back(f)
 
 def fc2_load_A_C(f):
     global layer_select_en, addr_i, reuse, write_back_mode, relu_en, broadcast_en, load_mode, load_data_1, load_data_2, load_data_3
@@ -271,10 +297,8 @@ def fc2_load_A_C(f):
     fc2_weight = np.array(fc2_weight)
     pad_values = np.full(8, '00000000', dtype=object)
     fc2_weight = np.hstack((fc2_weight, pad_values))
-    # fc2_input = load_fc2_input('../rdata_output.txt') # shape: (18)
-    fc2_input = torch.zeros((18,), dtype=torch.uint8)  # Dummy data for testing
-    for i in range(10):
-        fc2_input[i] = output_fc1[0, i]
+    # fc2_input = load_fc2_input('../rdata_output.txt') # shape: (90)
+    fc2_input = torch.zeros((90,), dtype=torch.uint8)  # Dummy data for testing
 
     layer_select_en = 0
     addr_i = 0
@@ -295,6 +319,8 @@ def fc2_load_A_C(f):
             load_data_2 = format(fc2_input[j*9 + i*3 + 1], '08b')
             load_data_3 = format(fc2_input[j*9 + i*3 + 2], '08b')
             write_instr(f)
+        waiting(f, 1)
+    write_back(f)
 
 # initialize signals
 rst_n = 0
@@ -309,7 +335,7 @@ load_data_1 = 0       # 8 bits
 load_data_2 = 0       # 8 bits
 load_data_3 = 0       # 8 bits
 
-file_path = 'dcache_ref.hex'
+file_path = '../../../../rtl/cv32e40p/fpga/tb/dcache.hex'
 with open(file_path, 'w') as f:
 
     # conv1
@@ -320,27 +346,18 @@ with open(file_path, 'w') as f:
     # conv2
     switch_layer(f, 'conv2') # switch to conv2
     conv2_load_A(f) # LOAD_A for conv2
+    # conv2_load_B(f) # LOAD_B for conv2
 
-    for w in range(13):
-        for h in range(14):
-            for c in range(3):
-                load_data_1 = output_conv1[0, 4*c, h, w]
-                load_data_2 = output_conv1[0, 4*c+1, h, w]
-                if c < 2:
-                    load_data_3 = output_conv1[0, 4*c+2, h, w]
-                    load_data_4 = output_conv1[0, 4*c+3, h, w]
-                else:
-                    load_data_3 = 0
-                    load_data_4 = 0
-                wdata = ''
-                for i in [load_data_1, load_data_2, load_data_3, load_data_4]:
-                    wdata += format(i, '02x')
-                f.write(f"{wdata}\n")
+    for i in range(546):
+        f.write('00000000\n')
 
-    # fc1
+    # fc1 
     switch_layer(f, 'fc1') # switch to fc1
     fc1_load_A_C(f) # LOAD_A and LOAD_C for fc1
 
     # fc2
     switch_layer(f, 'fc2') # switch to fc2
     fc2_load_A_C(f) # LOAD_A and LOAD_C for fc2
+
+    # result
+    f.write('00000000\n')
