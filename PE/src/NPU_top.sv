@@ -51,7 +51,7 @@ module NPU_top #(
   wire [1:0] write_back_mode;
   wire [DATA_WIDTH-1:0] instr;
 
-  assign instr = wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH] & {DATA_WIDTH{wen_i[0]}}; // valid only if write enabled
+  assign instr = wdata_i[AXI_WIDTH-1:AXI_WIDTH-DATA_WIDTH] & {DATA_WIDTH{wen_i}}; // valid only if write enabled
 
   npu_scheduler #(
     .N               (N),

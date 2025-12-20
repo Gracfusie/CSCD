@@ -126,7 +126,7 @@ conv1_weight = conv1_weight.reshape(10, 1, 3, 3)
 conv1_bias = np.zeros(10, dtype=np.int8)
 
 sample_input = load_sample_input('handout_new/data/sample_input.txt') # shape: (5, 1, 16, 15)
-sample_input = sample_input[1:2, :, :, :] # shape: (1, 1, 16, 15)
+sample_input = sample_input[2:3, :, :, :] # shape: (1, 1, 16, 15)
 
 q_conv1_w = torch.tensor(conv1_weight, dtype=torch.int8)
 q_conv1_b = torch.tensor(conv1_bias, dtype=torch.int8)
