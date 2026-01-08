@@ -2,3 +2,4 @@
 Verdi.ses.*
 !/sim/Makefile
 !/sim/signal.rc
+*/.vscode
