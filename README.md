@@ -26,3 +26,4 @@ make verdi
 | ![tapeout](./image/tapeout.png) | ![NPU架构](./image/npu_arch.svg) |
 |:------------------:|:------------------:|
 |       设计版图        |       NPU结构        |
+
